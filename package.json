@@ -1,0 +1,19 @@
+{
+  "name": "feed-sponge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Soak up your doomscroll, wring out what was worth knowing. Gemini labels each post in a phone screen recording.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "mock": "MOCK=true node server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@google/genai": "3.0.0",
+    "dotenv": "17.2.3",
+    "express": "5.1.0"
+  }
+}

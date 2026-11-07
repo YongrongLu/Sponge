@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Feed Sponge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: header + stats, tab bar, then one panel at a time (Sponge / Skill Map / Quiz / Screen Time / Weekly). Wrapped is a full-screen story overlay. Single vivid look on purpose. */
+:root{
+  --bg:#1a2cff; --bg-deep:#0f1bb8;
+  --sponge:#ffd83d; --press:#ff2e8b; --gold:#ffb81c; --rot:#9b7dff; --water:#5ef2ff;
+  --ink:#0a0f3d; --paper:#fff8dc;
+  --line:rgba(255,255,255,.18); --muted:rgba(255,255,255,.72); --glass:rgba(10,15,61,.32);
+  --f-display:"Bagel Fat One","Arial Black",system-ui,sans-serif;
+  --f-body:"Rubik",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%;margin:0}
+body{
+  background:radial-gradient(120% 80% at 50% 0%,#3446ff 0%,var(--bg) 45%,var(--bg-deep) 100%) fixed,var(--bg);
+  color:#fff;font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:20px 32px;
+}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(34px,6vw,58px);line-height:.95;margin:0;letter-spacing:.5px}
+h1 span{color:var(--sponge);text-shadow:4px 4px 0 var(--press)}
+h2{font-family:var(--f-display);font-weight:400;font-size:26px;margin:0;line-height:1.05;text-wrap:balance}
+.sub{margin:6px 0 0;color:var(--muted);max-width:56ch}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{background:var(--glass);border:1px solid var(--line);border-radius:14px;padding:8px 12px;min-width:92px}
+.stat b{display:block;font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat.gold b{color:var(--gold)} .stat.rot b{color:var(--rot)} .stat.press b{color:var(--press)}
+
+/* Tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tab{font:inherit;font-weight:700;background:var(--glass);color:#fff;border:2px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer;box-shadow:none}
+.tab[aria-selected="true"]{background:var(--sponge);color:var(--ink);border-color:var(--ink);box-shadow:3px 3px 0 var(--ink)}
+.tab:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.tab .n{font-family:var(--f-mono);font-size:11px;opacity:.7;margin-left:4px}
+.wrappedBtn{margin-left:auto;font-family:var(--f-display);font-weight:400;font-size:18px;background:var(--press);color:#fff;border:3px solid var(--ink);border-radius:14px;padding:8px 16px;cursor:pointer;box-shadow:4px 4px 0 var(--ink)}
+.wrappedBtn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+@media (max-width:640px){.wrappedBtn{margin-left:0;width:100%}}
+
+.grid{display:grid;grid-template-columns:280px minmax(0,1fr) 300px;gap:18px;align-items:stretch}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--glass);border:1px solid var(--line);border-radius:28px;padding:20px;min-width:0}
+.two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:18px}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.note{font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:.04em}
+
+/* Feed phone */
+.phone{background:var(--ink);border-radius:32px;padding:12px;border:3px solid #000;box-shadow:0 0 0 2px rgba(255,255,255,.12),8px 8px 0 rgba(0,0,0,.25);display:flex;flex-direction:column;gap:8px;min-width:0}
+.phone-top{display:flex;justify-content:space-between;align-items:center;padding:2px 8px 0;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.live{color:var(--press);font-weight:700}
+.feed{position:relative;height:400px;overflow:hidden;border-radius:20px;background:#151a52;display:flex;flex-direction:column;gap:8px;padding:8px}
+@media (max-width:980px){.feed{height:250px}}
+.post{flex:none;background:#fff;color:var(--ink);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.35;transition:transform .5s cubic-bezier(.6,-0.3,.7,1),opacity .5s}
+.post .h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:12px;margin-bottom:3px}
+.post img{width:100%;max-height:90px;object-fit:cover;border-radius:8px;display:block;margin-bottom:4px}
+.post .row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px}
+.save{font:inherit;font-size:11px;font-weight:700;background:none;border:1.5px solid var(--ink);border-radius:99px;padding:1px 8px;cursor:pointer;color:var(--ink);box-shadow:none}
+.save[aria-pressed="true"]{background:var(--ink);color:var(--sponge)}
+.tag{font-family:var(--f-mono);font-size:10px;padding:1px 6px;border-radius:99px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.tag.info{background:var(--gold);color:var(--ink)}
+.tag.fun{background:var(--water);color:var(--ink)}
+.tag.bait,.tag.rage{background:var(--rot);color:#fff}
+.post.suck{transform:translateX(160%) scale(.3) rotate(18deg);opacity:0}
+@media (max-width:980px){.post.suck{transform:translateY(240%) scale(.3) rotate(18deg)}}
+.capture{display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed rgba(255,255,255,.35);border-radius:16px;padding:9px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;text-align:center}
+.capture.over{border-color:var(--sponge);background:rgba(255,216,61,.12)}
+.capture input{position:absolute;width:1px;height:1px;opacity:0}
+.capture.primary{background:var(--sponge);color:var(--ink);border:3px solid var(--ink);font-size:13px}
+.phone.over{outline:3px dashed var(--sponge);outline-offset:4px}
+.screen{position:relative;height:400px;border-radius:20px;overflow:hidden;background:#000;cursor:crosshair}
+@media (max-width:980px){.screen{height:380px}}
+.screen video{width:100%;height:100%;object-fit:contain;display:block}
+.hud{position:absolute;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:8px;background:rgba(10,15,61,.82);border-radius:12px;padding:6px 8px;font-family:var(--f-mono);font-size:11px;color:#fff}
+.hud #hudCount{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud .save{color:#fff;border-color:#fff;margin-left:auto;flex:none}
+.hud .save[aria-pressed="true"]{background:var(--sponge);color:var(--ink);border-color:var(--sponge)}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .4s}
+.flash.on{opacity:.6;transition:none}
+.scan{position:absolute;left:0;right:0;top:0;height:3px;background:var(--press);box-shadow:0 0 14px 2px var(--press);pointer-events:none;animation:scan 2.6s linear infinite}
+@keyframes scan{from{top:0}to{top:100%}}
+@media (prefers-reduced-motion:reduce){.scan{display:none}}
+
+/* Stage */
+.stage{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:28px;overflow:hidden;min-height:520px;display:flex;flex-direction:column}
+canvas{display:block;width:100%;flex:1;min-height:440px;touch-action:none}
+.controls{display:flex;flex-wrap:wrap;gap:10px;padding:12px;border-top:1px solid var(--line);background:rgba(10,15,61,.35)}
+.btn{font:inherit;font-weight:700;border:3px solid var(--ink);border-radius:14px;padding:10px 16px;cursor:pointer;box-shadow:4px 4px 0 var(--ink);transition:transform .08s,box-shadow .08s;user-select:none;-webkit-user-select:none}
+.btn:active,.btn.down{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn:focus-visible,.save:focus-visible,.wrappedBtn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#squeezeBtn{background:var(--press);color:#fff;flex:1;min-width:180px;font-family:var(--f-display);font-weight:400;font-size:20px;letter-spacing:.5px}
+.y{background:var(--sponge);color:var(--ink)} .p{background:var(--paper);color:var(--ink)}
+kbd{font-family:var(--f-mono);font-size:12px;background:rgba(255,255,255,.22);border-radius:6px;padding:1px 6px;margin-left:6px}
+
+/* Jar */
+.keep{background:var(--paper);color:var(--ink);border-radius:28px;border:3px solid var(--ink);box-shadow:8px 8px 0 rgba(0,0,0,.25);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;max-height:620px}
+.keep p.k-sub{margin:0;font-size:13px;color:#4a4f7a}
+.cards{display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-right:2px}
+.card{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:10px 12px;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+.card .src{font-family:var(--f-mono);font-size:11px;color:#6a6f99;display:flex;justify-content:space-between}
+.card .txt{font-weight:500;font-size:14px;line-height:1.35;margin-top:2px}
+.card.has-img{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:start}
+.card.has-img img{width:44px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:2px solid var(--ink);display:block}
+.empty{border:2px dashed #b9b39a;border-radius:14px;padding:16px;font-size:13px;color:#6a6650;text-align:center}
+.panel .empty{border-color:var(--line);color:var(--muted)}
+@keyframes pop{0%{transform:scale(.6) translateY(-20px);opacity:0}100%{transform:none;opacity:1}}
+
+/* Skill map */
+#map svg{width:100%;height:auto;max-width:520px;display:block;margin:0 auto}
+.legend{display:flex;flex-direction:column;gap:6px}
+.lrow{display:grid;grid-template-columns:110px minmax(0,1fr) 34px;gap:8px;align-items:center;font-size:13px}
+.lbar{height:10px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}
+.lbar i{display:block;height:100%;border-radius:5px}
+.lrow b{font-family:var(--f-mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.callout{background:var(--paper);color:var(--ink);border:3px solid var(--ink);border-radius:18px;padding:14px;box-shadow:5px 5px 0 var(--ink)}
+.callout b{font-family:var(--f-display);font-weight:400;font-size:20px}
+
+/* Quiz */
+.quiz{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.qcard{background:var(--paper);color:var(--ink);border:3px solid var(--ink);border-radius:22px;padding:20px;box-shadow:6px 6px 0 var(--ink)}
+.qcard h2{font-size:24px}
+.opts{display:grid;gap:10px;margin-top:14px}
+.opt{font:inherit;text-align:left;background:#fff;color:var(--ink);border:2.5px solid var(--ink);border-radius:14px;padding:12px 14px;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+.opt:disabled{cursor:default}
+.opt.right{background:var(--gold)} .opt.wrong{background:var(--rot);color:#fff}
+.opt:focus-visible{outline:3px solid var(--press);outline-offset:2px}
+.opts.imgs{grid-template-columns:repeat(4,minmax(0,1fr))}
+.qsrc{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px;font-weight:500;color:#4a4f7a}
+.qsrc img{width:30px;aspect-ratio:9/16;object-fit:cover;border-radius:5px;border:2px solid var(--ink);flex:none}
+.qexp{margin:14px 0 0;font-size:14px;line-height:1.45;background:#fff;border:2px solid var(--ink);border-radius:12px;padding:10px 12px}
+.qcard .big{color:var(--ink)}
+.opt.img{padding:4px}
+.opt.img img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:9px;display:block}
+.timer{height:8px;border-radius:4px;background:rgba(10,15,61,.15);overflow:hidden;margin-top:10px}
+.timer i{display:block;height:100%;background:var(--press);width:100%}
+.verdict{font-family:var(--f-display);font-size:22px;text-align:center}
+
+/* Screen time / weekly */
+.apps{display:flex;flex-direction:column;gap:10px}
+.app{display:grid;grid-template-columns:96px minmax(0,1fr) 64px;gap:10px;align-items:center}
+.app span{font-weight:700;font-size:14px}
+.app .bar{height:22px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden}
+.app .bar i{display:block;height:100%;border-radius:7px;border-right:3px solid var(--ink)}
+.app b{font-family:var(--f-mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.big{font-family:var(--f-display);font-size:clamp(40px,7vw,64px);line-height:1;color:var(--sponge)}
+.week{display:flex;align-items:flex-end;gap:8px;height:160px;padding-top:8px}
+.day{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;min-width:0}
+.day i{width:100%;max-width:38px;border-radius:8px 8px 3px 3px;background:var(--water);border:2px solid var(--ink)}
+.day i.hi{background:var(--press)}
+.day small{font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.day em{font-style:normal;font-family:var(--f-mono);font-size:10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{background:var(--paper);color:var(--ink);border:2.5px solid var(--ink);border-radius:16px;padding:12px}
+.kpi b{display:block;font-family:var(--f-display);font-weight:400;font-size:30px;line-height:1}
+.kpi small{font-size:12px;color:#4a4f7a}
+.list{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.list div{background:rgba(255,255,255,.08);border-radius:10px;padding:8px 10px}
+.list .meta{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+
+/* Debug panel */
+#dbg{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:40;width:min(520px,calc(100vw - 24px));max-height:46vh;overflow:auto;background:rgba(8,10,40,.94);color:#e8ecff;border:2px solid #fff;border-radius:14px;padding:10px 12px;font:12px/1.45 ui-monospace,Menlo,monospace}
+#dbg .dbg-h{display:flex;justify-content:space-between;font-weight:700;margin-bottom:6px}#dbg .dbg-h span{opacity:.6;font-weight:400}
+#dbg ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}#dbg li.bad{color:#ff9db8}
+/* Wrapped */
+#wrapped{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(5,8,40,.85);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.story{position:relative;width:min(420px,100%);height:min(720px,100%);border-radius:28px;border:3px solid var(--ink);overflow:hidden;box-shadow:10px 10px 0 var(--ink);cursor:pointer;user-select:none}
+.bars{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:4px;z-index:2}
+.bars i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.35);overflow:hidden}
+.bars i b{display:block;height:100%;width:0;background:#fff}
+.slide{position:absolute;inset:0;padding:56px 26px 26px;display:flex;flex-direction:column;justify-content:center;gap:14px;animation:slideIn .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes slideIn{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.slide .kick{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.slide .huge{font-family:var(--f-display);font-size:clamp(64px,22vw,110px);line-height:.9}
+.slide h3{font-family:var(--f-display);font-weight:400;font-size:clamp(28px,8vw,40px);line-height:1;margin:0;text-wrap:balance}
+.slide p{margin:0;font-size:16px;line-height:1.4}
+.close{position:absolute;top:22px;right:16px;z-index:3;font:inherit;font-weight:700;background:var(--ink);color:#fff;border:0;border-radius:99px;width:34px;height:34px;cursor:pointer}
+.nutri{background:#fff;color:#000;border:3px solid #000;padding:10px 12px;font-family:Helvetica,Arial,sans-serif}
+.nutri h4{margin:0;font-size:30px;font-weight:900;line-height:1;border-bottom:8px solid #000;padding-bottom:4px}
+.nutri .r{display:flex;justify-content:space-between;border-bottom:1px solid #000;padding:3px 0;font-size:14px}
+.nutri .r.th{border-bottom-width:4px;font-weight:900}
+.nutri .r b{font-weight:900}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{background:rgba(10,15,61,.85);color:#fff;border-radius:99px;padding:4px 10px;font-size:13px;font-weight:700}
+.strip{display:flex;gap:5px;flex-wrap:wrap}
+.strip img{width:38px;aspect-ratio:9/16;object-fit:cover;border-radius:5px;border:2px solid #0a0f3d}
+@media (prefers-reduced-motion:reduce){.card,.slide{animation:none}.post{transition:opacity .3s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Feed <span>Sponge</span></h1>
+      <p class="sub">Everything you scroll soaks in. Wring it out to keep what was worth knowing, see what the algorithm is feeding you, and find out how much you actually remember.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sAbs">0</b><small>Soaked up</small></div>
+      <div class="stat rot"><b id="sRot">0%</b><small>Brain rot</small></div>
+      <div class="stat gold"><b id="sKeep">0</b><small>Worth keeping</small></div>
+      <div class="stat press"><b id="sAd">$0.000</b><small>Ad $ you made them</small></div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="t-sponge" aria-selected="true" data-v="sponge">Sponge</button>
+    <button class="tab" role="tab" id="t-map" aria-selected="false" data-v="map">Skill Map</button>
+    <button class="tab" role="tab" id="t-quiz" aria-selected="false" data-v="quiz">Goldfish Quiz</button>
+    <button class="tab" role="tab" id="t-time" aria-selected="false" data-v="time">Screen Time</button>
+    <button class="tab" role="tab" id="t-week" aria-selected="false" data-v="week">Weekly Report<span class="n" id="savedN">0 saved</span></button>
+    <button class="tab" id="muteBtn" type="button" aria-pressed="false">🔊 Sound on</button>
+    <button class="wrappedBtn" id="openWrapped" type="button">Play my Wrapped ▶</button>
+  </nav>
+
+  <!-- SPONGE -->
+  <section class="view" id="v-sponge">
+    <div class="grid">
+      <div class="phone" aria-label="Feed">
+        <div class="phone-top"><span id="srcLabel">Sample feed</span><span class="live" id="liveTag">● SCROLLING</span></div>
+        <div class="feed" id="feed"></div>
+        <div class="screen" id="screen" hidden>
+          <video id="vid" muted playsinline preload="auto"></video>
+          <div class="scan"></div>
+          <div class="flash" id="flash"></div>
+          <div class="hud"><span class="tag fun" id="hudTag">scanning</span><span id="hudCount">waiting for first post</span><button class="save" id="hudSave" type="button" aria-pressed="false">Save</button></div>
+        </div>
+        <label class="capture primary" for="rec">▶ Load phone screen recording<input type="file" id="rec" accept="video/*,.mov,.mp4,.m4v,.webm"></label>
+        <div class="note" id="engine" style="text-align:center">Labels: offline sample data</div>
+        <label class="capture" id="drop" for="shots">+ Add screenshots<input type="file" id="shots" accept="image/*" multiple></label>
+      </div>
+      <div class="stage" aria-label="Sponge press">
+        <canvas id="cv" aria-label="Animated sponge that absorbs posts and is squeezed by a press"></canvas>
+        <div class="controls">
+          <button class="btn" id="squeezeBtn" type="button">Hold to squeeze<kbd>SPACE</kbd></button>
+          <button class="btn y" id="playBtn" type="button">Pause scrolling</button>
+          <button class="btn p" id="resetBtn" type="button">Reset</button>
+        </div>
+      </div>
+      <aside class="keep" aria-label="Takeaways">
+        <h2>The Jar</h2>
+        <p class="k-sub">What was actually worth knowing from your feed.</p>
+        <div class="cards" id="cards"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- SKILL MAP -->
+  <section class="view panel" id="v-map" hidden>
+    <div class="two">
+      <div><div id="map"></div></div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <h2>What your feed is training you in</h2>
+        <p class="sub" style="margin:0">Each spoke is a topic the algorithm showed you. Gold spokes teach you something; purple spokes are engineered for engagement.</p>
+        <div class="callout" id="mapCallout"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="view" id="v-quiz" hidden>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <!-- SCREEN TIME -->
+  <section class="view panel" id="v-time" hidden>
+    <div class="two">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div><div class="note">ALL APPS · TODAY</div><div class="big" id="totalTime">6h 08m</div><p class="sub" style="margin:4px 0 0">Across every app on your phone and laptop. Sponge is only seeing what you capture.</p></div>
+        <div class="apps" id="apps"></div>
+        <div class="note">Sample device data for the demo · "This session" is live</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <h2>Where the hours went</h2>
+        <div class="kpis" id="timeKpis"></div>
+        <div class="callout" id="couldHave"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WEEKLY -->
+  <section class="view panel" id="v-week" hidden>
+    <div class="two">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div><div class="note">WEEK OF NOV 2 – NOV 8</div><h2>Your weekly scroll report</h2></div>
+        <div class="week" id="weekBars"></div>
+        <div class="kpis" id="weekKpis"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <h2 style="font-size:20px">Saved but never reopened</h2>
+        <div class="list" id="savedList"></div>
+        <h2 style="font-size:20px">Best of what you learned</h2>
+        <div class="list" id="weekTakes"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<aside id="dbg" hidden aria-label="Debug log"><div class="dbg-h">Gemini debug log <span>press D to hide</span></div><ol></ol></aside>
+<div id="wrapped" hidden role="dialog" aria-modal="true" aria-label="Your Sponge Wrapped">
+  <div class="story" id="story">
+    <div class="bars" id="wbars"></div>
+    <button class="close" id="wclose" type="button" aria-label="Close">✕</button>
+    <div id="wslide"></div>
+  </div>
+</div>
+
+<script>
+const POSTS=[
+ {h:"@catclips",k:"fun",topic:"Pets",t:"cat knocks 14 glasses off the counter, refuses to elaborate"},
+ {h:"@moneyminute",k:"info",topic:"Money",t:"why your checking account is quietly losing you money",take:"Idle cash in checking loses value to inflation; a high-yield savings account closes most of that gap."},
+ {h:"@attic.finds",k:"bait",topic:"Clickbait",t:"you won't BELIEVE what he found in the attic (part 7)"},
+ {h:"@sleep.lab",k:"info",topic:"Health",t:"the #1 sleep fix nobody talks about",take:"A consistent wake-up time matters more for sleep quality than a consistent bedtime."},
+ {h:"@citydrama",k:"rage",topic:"Outrage",t:"this city council just did WHAT?? 😡"},
+ {h:"@dancetrend",k:"fun",topic:"Dance",t:"learn this in 8 counts (it took me 3 hours)"},
+ {h:"@habla.ya",k:"info",topic:"Language",t:"Spanish false friends that will embarrass you",take:"“Embarazada” means pregnant, not embarrassed. Use “avergonzado”."},
+ {h:"@part2pls",k:"bait",topic:"Clickbait",t:"comment YES and I'll post part 2"},
+ {h:"@dev.tips",k:"info",topic:"Tech",t:"git tricks I wish I knew sooner",take:"`git switch -` jumps straight back to the branch you were on before."},
+ {h:"@prank.co",k:"fun",topic:"Memes",t:"I replaced my roommate's coffee with soup"},
+ {h:"@pastfacts",k:"info",topic:"History",t:"timeline facts that break your brain",take:"Cleopatra lived closer in time to the Moon landing than to the building of the Great Pyramid."},
+ {h:"@hottakes",k:"rage",topic:"Outrage",t:"unpopular opinion that will ruin your whole day"},
+ {h:"@fry.pov",k:"fun",topic:"Memes",t:"POV: you're the last fry in the bag"},
+ {h:"@kitchen.sci",k:"info",topic:"Cooking",t:"stop under-salting your pasta water",take:"Salt pasta water until it tastes like mild broth, roughly 1 tbsp per 4 quarts."},
+ {h:"@freestuff",k:"bait",topic:"Clickbait",t:"GIVEAWAY 🎁 tag 3 friends to win (not a scam)"},
+ {h:"@goldenboy",k:"fun",topic:"Pets",t:"golden retriever meets a mirror for the first time"},
+];
+const TOPICS=["Money","Career","Tech","Science","Health","Fitness","Language","History","News","Cooking","Food","Travel","Fashion","Beauty","Music","Dance","Sports","Gaming","Pets","Memes","Relationships","Messages","Shopping","Clickbait","Outrage","Other"];
+const LEARN=new Set(["Money","Career","Tech","Science","Health","Fitness","Language","History","News","Cooking"]);
+const MAP_DEFAULTS=["Money","Tech","Health","Pets","Memes","Clickbait","Outrage"];
+function mapTopics(){const m=topicCounts(),seen=TOPICS.filter(t=>m[t]);for(const d of MAP_DEFAULTS){if(seen.length>=6)break;if(!seen.includes(d))seen.push(d)}return TOPICS.filter(t=>seen.includes(t))}
+const SEC_PER_POST=9;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const feed=$("#feed"),cv=$("#cv"),ctx=cv.getContext("2d");
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const C={sponge:"#ffd83d",press:"#ff2e8b",gold:"#ffb81c",rot:"#9b7dff",water:"#5ef2ff",ink:"#0a0f3d",paper:"#fff8dc"};
+const CAP=14;
+
+let postIdx=0,uid=0,playing=true,pressing=false,view="sponge",mode="sample",watched=0;
+let queue=[],chips=[],drops=[],floats=[],history=[],saved=[],takes=[];
+let absorbed=0,rotCount=0,kept=0,keptSet=new Set(),quizScore={right:0,total:0};
+let s=0,sv=0,emitAcc=0,W=0,H=0,dpr=1;
+
+/* ---------- feed ---------- */
+function postEl(p){
+  const d=document.createElement("div");d.className="post";
+  d.innerHTML=`${p.img?`<img src="${p.img}" alt="Captured screenshot">`:""}<div class="h"><span>${esc(p.h)}</span><span class="tag ${p.k}">${p.k==="info"?"useful":p.k}</span></div><div>${esc(p.t)}</div><div class="row"><span class="note" style="color:#6a6f99">${esc(p.topic)}</span><button class="save" type="button" aria-pressed="${saved.some(x=>x.uid===p.uid)}">Save</button></div>`;
+  d.querySelector(".save").onclick=e=>{const b=e.currentTarget,on=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",on);
+    if(on)saved.push(p);else saved=saved.filter(x=>x.uid!==p.uid);$("#savedN").textContent=saved.length+" saved"};
+  d._p=p;return d;
+}
+function nextPost(){const p={...POSTS[postIdx%POSTS.length],uid:uid++};postIdx++;return p}
+for(let i=0;i<6;i++)feed.appendChild(postEl(nextPost()));
+
+function absorbTop(){
+  const el=feed.firstElementChild;if(!el||el.classList.contains("suck"))return;
+  const r=el.getBoundingClientRect(),c=cv.getBoundingClientRect();
+  const sx=Math.max(-20,Math.min(W+20,r.left+r.width/2-c.left));
+  const sy=Math.max(-20,Math.min(H,r.top+r.height/2-c.top));
+  el.classList.add("suck");
+  setTimeout(()=>{el.remove();feed.appendChild(postEl(nextPost()))},reduce?300:500);
+  chips.push({x:sx,y:sy,sx,sy,t:0,p:el._p});
+}
+setInterval(()=>{
+  if(!playing||mode!=="sample"||queue.length+chips.length>=CAP+2)return;
+  if(view==="sponge")absorbTop();
+  else{const el=feed.firstElementChild;if(el){el.remove();feed.appendChild(postEl(nextPost()));arrive(el._p)}}  // keep soaking in background
+},1100);
+
+/* ---------- real screen recording ----------
+   Every ~180 ms the frame is shrunk to 24×48 and compared with the last one.
+   A big jump = a swipe. Once the motion settles, the new frame is captured as a post.
+   Labels (k/topic/take) are placeholders; the real build sends each captured frame to the vision model. */
+const vid=$("#vid"),screenEl=$("#screen");
+const SWIPE=16,SETTLE=7,CHANGE=16;   // mean luminance change, 0–255. Raise SWIPE if busy videos create false posts.
+let lastSig=null,prevSig=null,pendingAt=0,lastPostAt=-1e9,vidN=0,curPost=null,lastTick=performance.now();
+const sc=document.createElement("canvas");sc.width=24;sc.height=48;
+const sctx=sc.getContext("2d",{willReadFrequently:true});
+function sig(){sctx.drawImage(vid,0,0,24,48);const d=sctx.getImageData(0,0,24,48).data,a=new Float32Array(24*48);
+  for(let i=0;i<a.length;i++)a[i]=d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11;return a}
+function diff(a,b){let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return s/a.length}
+function grab(){const w=180,h=Math.round(w*vid.videoHeight/vid.videoWidth);const c=document.createElement("canvas");
+  c.width=w;c.height=Math.min(h,420);c.getContext("2d").drawImage(vid,0,0,w,h);return c.toDataURL("image/jpeg",.72)}
+const fmtT=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+function flyIn(p,el){
+  if(view!=="sponge"||!W){arrive(p);return}
+  const r=el.getBoundingClientRect(),c=cv.getBoundingClientRect();
+  const sx=Math.max(-20,Math.min(W+20,r.left+r.width/2-c.left)),sy=Math.max(-20,Math.min(H,r.top+r.height/2-c.top));
+  chips.push({x:sx,y:sy,sx,sy,t:0,p});
+}
+function newPost(s){
+  lastSig=s;lastPostAt=performance.now();vidN++;
+  const base=nextPost(),thumb=grab();
+  const p={...base,h:"clip "+String(vidN).padStart(2,"0"),t:`Clip ${vidN} at ${fmtT(vid.currentTime)}`,thumb};
+  p.imgObj=new Image();p.imgObj.src=thumb;curPost=p;
+  const tg=$("#hudTag");tg.className="tag "+p.k;tg.textContent=p.k==="info"?"useful":p.k;
+  $("#hudCount").textContent=`post ${vidN} · ${p.topic}`;
+  $("#hudSave").setAttribute("aria-pressed","false");
+  const f=$("#flash");f.classList.add("on");requestAnimationFrame(()=>requestAnimationFrame(()=>f.classList.remove("on")));
+  flyIn(p,screenEl);
+}
+function tick(){
+  const now=performance.now(),dt=(now-lastTick)/1000;lastTick=now;
+  if(mode!=="video"||vid.paused||vid.ended||vid.readyState<2||!vid.videoWidth)return;
+  watched+=Math.min(dt,.5);
+  if(aiLive){grabLive();return}   // Gemini reads live; no local swipe detection
+  if(aiMode)return;
+  const s=sig();
+  if(!lastSig){if(s.reduce((a,b)=>a+b,0)/s.length>10){prevSig=s;newPost(s)}return}   // skip black opening frames
+  const m=prevSig?diff(s,prevSig):0;prevSig=s;
+  if(!pendingAt&&m>SWIPE&&now-lastPostAt>1200)pendingAt=now;
+  if(pendingAt&&((m<SETTLE&&now-pendingAt>250)||now-pendingAt>1300)){pendingAt=0;if(diff(s,lastSig)>CHANGE)newPost(s)}
+}
+setInterval(tick,180);
+/* ---------- Gemini, live ----------
+   While the video plays we grab 1 frame per second from it. Every 3 frames go to /api/chunk (one request at a time, in order),
+   and each post Gemini finds flies into the sponge as soon as its batch comes back.
+   When the video ends, /api/recap writes the persona and a quiz from what was actually on screen.
+   Replay re-uses the stored posts (no new Gemini calls). No backend: local swipe detection with sample labels. */
+let aiMode=false,aiBusy=false,aiLive=false,aiPosts=[],aiNext=0,aiProfile=null,aiRun=0,backend=null,recName="";
+let liveBuf=[],liveQ=[],liveInflight=false,liveEnded=false,liveCtx=null,liveLastGrab=-9,liveFails=0,liveDone=false;
+const CHUNK=3,grabCv=document.createElement("canvas"),b64=u=>u.slice(u.indexOf(",")+1);
+const SID=Math.random().toString(36).slice(2,10),HDR={"Content-Type":"application/json","X-Sponge-Session":SID};
+/* debug panel: press D (or open with ?debug) to see every Gemini batch: latency, posts found, raw errors */
+const dbgLog=[];
+function dbg(e){e.t=new Date().toLocaleTimeString();dbgLog.unshift(e);if(dbgLog.length>80)dbgLog.pop();renderDbg()}
+function renderDbg(){const el=$("#dbg");if(!el||el.hidden)return;
+  el.querySelector("ol").innerHTML=dbgLog.map(e=>`<li class="${e.err?"bad":""}"><b>${e.t}</b> ${e.kind} · ${e.frames||0} frames · ${e.err?esc(e.err):`${e.ms} ms · ${e.posts&&e.posts.length?e.posts.map(esc).join(" | "):"no new post"}`}</li>`).join("")||"<li>No Gemini calls yet.</li>"}
+addEventListener("keydown",e=>{if((e.key==="d"||e.key==="D")&&!e.metaKey&&!e.ctrlKey&&!(e.target.closest&&e.target.closest("input,select,textarea"))){const el=$("#dbg");el.hidden=!el.hidden;renderDbg()}});
+function engine(t){$("#engine").textContent=t}
+fetch("api/health").then(r=>r.ok?r.json():null).then(j=>{backend=j;if(j)engine(j.mode==="mock"?"Mock mode: no Gemini yet":j.mode==="unconfigured"?"Configure Gemini credentials in .env to read recordings":"Labels by Gemini · "+j.model)}).catch(()=>{backend=null});
+function hud(text,tag,cls){$("#hudCount").textContent=text;if(tag){const t=$("#hudTag");t.className="tag "+(cls||"fun");t.textContent=tag}}
+function setSrc(label){$("#srcLabel").textContent=label+" · "+recName}
+function startAnalysis(f){
+  aiRun++;aiMode=false;aiLive=false;aiPosts=[];aiNext=0;aiProfile=null;quizData=null;
+  liveBuf=[];liveQ=[];liveInflight=false;liveEnded=false;liveCtx=null;liveLastGrab=-9;liveFails=0;liveDone=false;
+  if(!backend){aiMode=true;setSrc("No server");hud("Start the Feed Sponge server to read recordings","offline","bait");engine("Recordings need the Feed Sponge server (npm start). Nothing is made up.");return}
+  if(backend.mode==="unconfigured"){aiMode=true;setSrc("No Gemini");hud("Configure Gemini credentials in .env","offline","bait");engine("Gemini credentials are missing. Add them to .env and restart the server.");return}
+  aiLive=true;setSrc(backend.mode==="mock"?"Mock":"Gemini");hud("watching…","live","fun");
+  engine(backend.mode==="mock"?"● Mock mode · reading live":"● Gemini is reading live");
+}
+function grabLive(){
+  if(liveEnded)return;const t=vid.currentTime;if(t-liveLastGrab<1)return;liveLastGrab=t;
+  const w=768,h=Math.round(w*vid.videoHeight/vid.videoWidth);grabCv.width=w;grabCv.height=Math.min(1700,h);
+  grabCv.getContext("2d").drawImage(vid,0,0,w,h);
+  liveBuf.push({t:+t.toFixed(1),url:grabCv.toDataURL("image/jpeg",.72)});
+  if(liveBuf.length>=CHUNK){liveQ.push(liveBuf);liveBuf=[];pump()}
+}
+vid.addEventListener("ended",()=>{if(aiLive&&!liveEnded){liveEnded=true;if(liveBuf.length){liveQ.push(liveBuf);liveBuf=[]}pump()}});
+let minGap=0,lastSend=0,pumpTimer=null;
+// One request at a time, in order. If Gemini rate-limits (429) we slow down and merge queued frames (up to 12) into one call. Nothing is invented on failure.
+async function pump(){
+  if(liveInflight)return;
+  if(!liveQ.length){
+    if(aiLive&&liveEnded&&!liveDone){liveDone=true;aiLive=false;aiMode=true;aiNext=aiPosts.length;
+      engine(aiPosts.length?`Gemini read ${aiPosts.length} posts · writing your quiz…`:"Gemini found no posts in this recording · press D for details");if(aiPosts.length)recap()}
+    return}
+  const wait=lastSend+minGap-performance.now();
+  if(wait>0){if(!pumpTimer)pumpTimer=setTimeout(()=>{pumpTimer=null;pump()},wait+20);return}
+  const run=aiRun;let frames=liveQ.shift();const tries=frames.tries||0;
+  while(liveQ.length&&frames.length+liveQ[0].length<=12)frames=frames.concat(liveQ.shift());
+  frames.tries=tries;liveInflight=true;lastSend=performance.now();const t0=lastSend;
+  try{
+    const r=await fetch("api/chunk",{method:"POST",headers:HDR,
+      body:JSON.stringify({frames:frames.map(f=>b64(f.url)),times:frames.map(f=>f.t),context:liveCtx})});
+    const data=await r.json().catch(()=>({}));
+    if(run!==aiRun)return;
+    if(!r.ok)throw Object.assign(new Error(data.error||`HTTP ${r.status}`),{status:r.status,retryAfter:data.retryAfter,quotaType:data.quotaType});
+    minGap=Math.max(0,minGap-1000);
+    dbg({kind:"chunk",frames:frames.length,ms:Math.round(performance.now()-t0),posts:(data.posts||[]).map(p=>(p.continues_previous?"(cont) ":"")+`[${p.kind}] ${p.title}${p.details&&p.details.length?` · ${p.details.length} facts`:""}`)});
+    for(const p of data.posts||[]){
+      const prev=aiPosts[aiPosts.length-1];
+      if(p.continues_previous&&prev){prev.details=[...new Set([...(prev.details||[]),...(p.details||[])])].slice(0,5);continue}
+      const mid=Math.min(frames.length-1,Math.floor((p.start_frame+p.end_frame)/2)),st=Math.min(frames.length-1,p.start_frame);
+      const post={uid:uid++,h:"post "+String(aiPosts.length+1).padStart(2,"0"),k:p.kind,topic:p.topic,t:p.title,take:p.takeaway||p.title,details:p.details||[],thumb:frames[mid].url,at:frames[st].t};
+      post.imgObj=new Image();post.imgObj.src=post.thumb;aiPosts.push(post);release(post);
+    }
+    const last=aiPosts[aiPosts.length-1];liveCtx={frame:b64(frames[frames.length-1].url),title:last?last.t:null};
+    if(aiLive)engine(`● Gemini is reading live · ${aiPosts.length} post${aiPosts.length===1?"":"s"}`);
+  }catch(e){
+    if(run!==aiRun)return;
+    const code=e.status||"network";dbg({kind:"chunk",frames:frames.length,err:`${code} · ${String(e.message).slice(0,200)}`});
+    frames.tries++;
+    if(e.status===429&&e.quotaType==="daily"){
+      aiLive=false;aiMode=true;liveEnded=true;liveDone=true;liveQ=[];liveBuf=[];
+      const hours=e.retryAfter?` · retry in about ${Math.ceil(e.retryAfter/3600)}h`:"";
+      engine(`Gemini daily quota exhausted${hours} · analysis stopped; recording was not fully read`);
+      hud("Gemini daily quota exhausted","error","bait");
+    }else if(e.status===429){
+      minGap=Math.min(120000,Math.max((e.retryAfter||0)*1000,minGap?minGap*1.5:7000));
+      if(frames.tries<=6){liveQ.unshift(frames);engine(`Gemini rate limit (429) · slowing to 1 call per ${Math.round(minGap/1000)}s · frames queued`)}
+      else{aiLive=false;aiMode=true;liveEnded=true;liveDone=true;liveQ=[];liveBuf=[];engine("Gemini kept rate-limiting (429) · analysis stopped; recording was not fully read");hud("Gemini rate limit","error","bait")}
+    }else if(frames.tries<3){liveQ.unshift(frames);minGap=Math.max(minGap,1500*frames.tries);engine(`Gemini error ${code} · retrying (${frames.tries}/2)…`)}
+    else{aiLive=false;aiMode=true;liveEnded=true;liveDone=true;liveQ=[];liveBuf=[];engine(`Gemini error ${code} · analysis stopped; recording was not fully read · press D for details`);hud(`Gemini error ${code}`,"error","bait")}
+  }finally{if(run===aiRun){liveInflight=false;pump()}}
+}
+async function recap(){
+  const run=aiRun;
+  try{
+    const r=await fetch("api/recap",{method:"POST",headers:HDR,
+      body:JSON.stringify({posts:aiPosts.map(p=>({title:p.t,topic:p.topic,kind:p.k,takeaway:p.k==="info"?p.take:"",details:p.details||[]}))})});
+    const d=await r.json().catch(()=>({}));
+    if(run!==aiRun)return;
+    if(!r.ok)throw new Error(d.error||"error "+r.status);
+    aiProfile=d.profile||null;
+    quizData=(d.quiz||[]).map(q=>shuffleQ({...q,post:aiPosts[q.post_index]}));quizI=0;quizRound=0;
+    engine(quizData.length?`Gemini read ${aiPosts.length} posts · your quiz is ready`:`Gemini read ${aiPosts.length} posts · not enough readable detail for a quiz`);
+    if(quizData.length)sfx("ready");if(view==="quiz")renderQuiz();
+  }catch(e){if(run===aiRun){engine("Couldn't write the quiz: "+String(e.message).slice(0,60));if(view==="quiz")renderQuiz()}}
+}
+function requestQuiz(){if(aiPosts.length)recap()}
+function release(p){
+  curPost=p;const tg=$("#hudTag");tg.className="tag "+p.k;tg.textContent=p.k==="info"?"useful":p.k;
+  $("#hudCount").textContent=`${p.h} · ${p.t}`;$("#hudSave").setAttribute("aria-pressed","false");
+  const f=$("#flash");f.classList.add("on");requestAnimationFrame(()=>requestAnimationFrame(()=>f.classList.remove("on")));
+  flyIn(p,screenEl);
+}
+// replay: release stored posts in sync with playback
+setInterval(()=>{
+  if(!aiMode||mode!=="video"||aiNext>=aiPosts.length)return;
+  const p=aiPosts[aiNext];
+  if(vid.ended||vid.currentTime+.1>=p.at){aiNext++;release(p)}
+},350);
+function loadRec(f){
+  if(!f)return;
+  resetAll();mode="video";playing=true;
+  feed.hidden=true;screenEl.hidden=false;recName=f.name.length>16?f.name.slice(0,14)+"…":f.name;$("#srcLabel").textContent=recName;
+  const tg=$("#hudTag");tg.className="tag fun";tg.textContent="scanning";$("#hudCount").textContent="waiting for first post";
+  let triedData=false;
+  vid.onerror=()=>{
+    if(!triedData){triedData=true;const rd=new FileReader();rd.onload=()=>{vid.src=rd.result;vid.play().catch(()=>{})};rd.readAsDataURL(f)}
+    else $("#hudCount").textContent="Can't play this file. Export it as MP4 (H.264).";
+  };
+  vid.src=URL.createObjectURL(f);vid.play().catch(()=>{});
+  if(view!=="sponge")setView("sponge");
+  syncPlay();
+  startAnalysis(f);
+}
+vid.addEventListener("ended",()=>{playing=false;syncPlay()});
+$("#hudSave").onclick=e=>{e.stopPropagation();if(!curPost)return;const b=e.currentTarget,on=b.getAttribute("aria-pressed")!=="true";
+  b.setAttribute("aria-pressed",on);if(on)saved.push(curPost);else saved=saved.filter(x=>x.uid!==curPost.uid);$("#savedN").textContent=saved.length+" saved"};
+// (manual tap-to-capture removed: it produced placeholder labels)
+
+/* screenshots: each one is read by Gemini (never labelled with sample data) */
+function addShots(files){
+  [...files].filter(f=>f.type.startsWith("image/")).forEach(f=>{
+    const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>readShot(im);im.src=rd.result};rd.readAsDataURL(f)});
+}
+async function readShot(im){
+  if(!backend){engine("Screenshots need the Feed Sponge server (npm start). Nothing is made up.");return}
+  if(backend.mode==="unconfigured"){engine("Gemini credentials are missing. Add them to .env and restart the server.");return}
+  const w=Math.min(1024,im.naturalWidth),h=Math.round(w*im.naturalHeight/im.naturalWidth),c=document.createElement("canvas");
+  c.width=w;c.height=Math.min(2400,h);c.getContext("2d").drawImage(im,0,0,w,h);
+  const url=c.toDataURL("image/jpeg",.8),t0=performance.now();engine("Gemini is reading your screenshot…");
+  try{
+    const r=await fetch("api/chunk",{method:"POST",headers:HDR,body:JSON.stringify({frames:[b64(url)],times:[0],context:null})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw Object.assign(new Error(d.error||"HTTP "+r.status),{status:r.status});
+    const ps=d.posts||[];dbg({kind:"screenshot",frames:1,ms:Math.round(performance.now()-t0),posts:ps.map(p=>`[${p.kind}] ${p.title}`)});
+    if(!ps.length){engine("Gemini found no post in that screenshot");return}
+    for(const p of ps){const post={uid:uid++,h:"shot "+String(aiPosts.length+1).padStart(2,"0"),k:p.kind,topic:p.topic,t:p.title,take:p.takeaway||p.title,details:p.details||[],thumb:url,at:0};
+      post.imgObj=new Image();post.imgObj.src=url;aiPosts.push(post);
+      if(mode==="video")release(post);else flyIn(post,feed)}
+    engine(`Gemini read your screenshot · ${ps.length} post${ps.length>1?"s":""}`);
+  }catch(e){engine(`Gemini couldn't read the screenshot (${e.status||"network"}) · press D`);dbg({kind:"screenshot",frames:1,err:`${e.status||"network"} · ${String(e.message).slice(0,200)}`})}
+}
+function route(files){const fs=[...files];const v=fs.find(f=>f.type.startsWith("video/")||/\.(mov|mp4|m4v|webm)$/i.test(f.name));if(v)loadRec(v);addShots(fs)}
+$("#rec").onchange=e=>{loadRec(e.target.files[0]);e.target.value=""};
+$("#shots").onchange=e=>{addShots(e.target.files);e.target.value=""};
+const phoneEl=$(".phone");
+["dragenter","dragover"].forEach(ev=>phoneEl.addEventListener(ev,e=>{e.preventDefault();phoneEl.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>phoneEl.addEventListener(ev,e=>{e.preventDefault();phoneEl.classList.remove("over")}));
+phoneEl.addEventListener("drop",e=>route(e.dataTransfer.files));
+
+function arrive(p){queue.push(p);history.push(p);absorbed++;if(p.k!=="info")rotCount++;stats();onAbsorb(p)}
+
+/* ---------- sound: synthesised live with Web Audio (no audio files) ---------- */
+let actx=null,muted=false;try{muted=localStorage.getItem("sponge-muted")==="1"}catch(e){}
+function ac(){if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;actx=new A()}if(actx.state==="suspended")actx.resume().catch(()=>{});return actx}
+addEventListener("pointerdown",()=>ac(),{once:true});addEventListener("keydown",()=>ac(),{once:true});
+function tone(o){const c=ac();if(!c||muted)return;const t=c.currentTime+(o.at||0),osc=c.createOscillator(),g=c.createGain();
+  osc.type=o.type||"sine";osc.frequency.setValueAtTime(o.f,t);if(o.f2)osc.frequency.exponentialRampToValueAtTime(o.f2,t+o.d);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(o.v||.2,t+(o.a||.01));g.gain.exponentialRampToValueAtTime(.0001,t+o.d);
+  let n=osc;if(o.lp){const f=c.createBiquadFilter();f.type="lowpass";f.frequency.value=o.lp;osc.connect(f);n=f}
+  n.connect(g);g.connect(c.destination);osc.start(t);osc.stop(t+o.d+.03)}
+function noise(o){const c=ac();if(!c||muted)return;const t=c.currentTime+(o.at||0),len=Math.max(1,Math.floor(c.sampleRate*o.d)),b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const s=c.createBufferSource();s.buffer=b;const f=c.createBiquadFilter();f.type=o.ft||"bandpass";
+  f.frequency.setValueAtTime(o.f,t);if(o.f2)f.frequency.exponentialRampToValueAtTime(o.f2,t+o.d);f.Q.value=o.q||1;
+  const g=c.createGain();g.gain.setValueAtTime(o.v||.2,t);g.gain.exponentialRampToValueAtTime(.0001,t+o.d);s.connect(f);f.connect(g);g.connect(c.destination);s.start(t);s.stop(t+o.d)}
+const lastSfx={};
+function sfx(name){const now=performance.now();if(now-(lastSfx[name]||0)<70)return;lastSfx[name]=now;
+  switch(name){
+    case "upload":[523,659,784,1047].forEach((f,i)=>tone({f,type:"triangle",d:.2,v:.18,at:i*.075}));tone({f:1568,f2:2349,d:.4,v:.07,at:.32});break;
+    case "good":tone({f:280,f2:880,d:.17,v:.26});tone({f:640,f2:1300,d:.12,v:.12,at:.09});[0,1,2].forEach(i=>tone({f:1400+i*350,f2:2000+i*350,d:.07,v:.06,at:.2+i*.055}));break;
+    case "bad":tone({f:230,f2:85,type:"sawtooth",d:.38,v:.13,lp:650});tone({f:150,f2:110,type:"square",d:.28,v:.05,lp:420,at:.06});break;
+    case "squeeze":noise({f:450,f2:1600,d:.5,v:.28,q:4});tone({f:150,f2:330,type:"triangle",d:.45,v:.08});break;
+    case "drip":tone({f:900+Math.random()*500,f2:1900,d:.09,v:.15});break;
+    case "splat":noise({f:500,f2:110,d:.2,v:.32,q:.7,ft:"lowpass"});break;
+    case "coin":tone({f:988,type:"square",d:.08,v:.06});tone({f:1319,type:"square",d:.28,v:.06,at:.08});break;
+    case "right":[660,880,1320].forEach((f,i)=>tone({f,type:"triangle",d:.16,v:.17,at:i*.065}));break;
+    case "wrong":tone({f:210,f2:140,type:"sawtooth",d:.38,v:.11,lp:900});break;
+    case "ready":[784,1047].forEach((f,i)=>tone({f,type:"triangle",d:.16,v:.14,at:i*.08}));break;
+  }}
+function setMute(m){muted=m;const b=$("#muteBtn");b.textContent=m?"🔇 Sound off":"🔊 Sound on";b.setAttribute("aria-pressed",String(m));try{localStorage.setItem("sponge-muted",m?"1":"0")}catch(e){}}
+$("#muteBtn").onclick=()=>{setMute(!muted);if(!muted){ac();sfx("ready")}};setMute(muted);
+vid.addEventListener("loadeddata",()=>sfx("upload"));
+
+/* ---------- sponge geometry ---------- */
+const N=72,shape=[],holes=[];
+(function(){
+  for(let i=0;i<N;i++){const a=i/N*Math.PI*2,c=Math.cos(a),sn=Math.sin(a),n=5;
+    shape.push({x:Math.sign(c)*Math.pow(Math.abs(c),2/n)*.5,y:Math.sign(sn)*Math.pow(Math.abs(sn),2/n)*.5,j:(Math.random()-.5)*.025})}
+  let tries=0;while(holes.length<26&&tries++<500){
+    const h={x:(Math.random()-.5)*.82,y:(Math.random()-.5)*.72,r:.018+Math.random()*.04};
+    if(holes.every(o=>Math.hypot(o.x-h.x,(o.y-h.y)*1.6)>o.r+h.r+.02))holes.push(h)}
+})();
+let perf=0,last=performance.now();
+/* ---------- sponge mood ----------
+   size: grows with knowledge absorbed + how full it is · vivid: dry beige → bright yellow as real facts come in
+   md (mood, -1..1): recent posts' useful ratio; a streak of junk makes it miserable. Empty = withered. */
+let sz=.6,md=-.45,vivid=0,dry=1,blinkT=2.5,blinkOn=0,react=null,bubble=null,bubbleAt=-1e9,sparks=[];
+const LINES={good:["ooh, a real fact!","nom nom, knowledge","brain food ✨","I'm learning!","more of this pls"],
+  bad:["ugh, more brain rot","that was… nothing","I feel soggy","why did I watch that"],
+  rage:["so much anger 😤","not this again…"],bait:["part 2?? really?","clickbait. again."],
+  sad:["please… one real fact","is this all there is?","I'm wilting here"],sqz:["hnnngh!","wring it out!","squeeeeze!"],
+  dry:["so… dry…","feed me facts","*crumbles*"],thrive:["I'm THRIVING","so juicy rn","big brain energy"]};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function say(t,force){if(!force&&perf-bubbleAt<1100)return;bubble={text:t,t:2.4};bubbleAt=perf}
+function junkStreak(){let n=0;for(let i=history.length-1;i>=0&&history[i].k!=="info";i--)n++;return n}
+function moodTargets(){
+  const info=history.filter(p=>p.k==="info").length,fill=Math.min(1,queue.length/CAP);
+  const rec=history.slice(-6),q=rec.length?rec.filter(p=>p.k==="info").length/rec.length:0,streak=junkStreak();
+  let m=history.length?(q-.3)*2.4:-.45;
+  if(streak>=4)m=Math.min(m,-.75-Math.min(.25,(streak-4)*.06));
+  const v=Math.min(1,info/5);
+  return{m:Math.max(-1,Math.min(1,m)),v,size:Math.min(1.08,.6+.22*v+.28*fill),dry:Math.max(0,Math.min(1,1-v*1.2-fill*.8)),fill};
+}
+function tickMood(dt){
+  const T=moodTargets(),k=Math.min(1,dt*1.2);
+  sz+=(T.size-sz)*k;vivid+=(T.v-vivid)*k;dry+=(T.dry-dry)*k;md+=(T.m-md)*Math.min(1,dt*1.8);
+  blinkT-=dt;if(blinkT<=0){blinkOn=.13;blinkT=2.2+Math.random()*3}if(blinkOn>0)blinkOn-=dt;
+  if(react&&(react.t-=dt)<=0)react=null;
+  if(bubble&&(bubble.t-=dt)<=0)bubble=null;
+  for(const p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.kind==="star"?120:-20)*dt;p.life-=dt}
+  sparks=sparks.filter(p=>p.life>0);
+  if(perf-bubbleAt>8000&&!pressing){
+    if(!history.length||dry>.7)say(pick(LINES.dry));
+    else if(md>.6&&T.fill>.4)say(pick(LINES.thrive));
+    else if(md<-.6)say(pick(LINES.sad));
+  }
+}
+function onAbsorb(p){
+  const g=geo();sfx(p.k==="info"?"good":"bad");
+  if(p.k==="info"){
+    react={kind:"good",t:.9};say(pick(LINES.good));
+    for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2;sparks.push({kind:"star",x:g.cx+Math.cos(a)*g.sw*.35,y:g.cy+Math.sin(a)*g.sh*.3,vx:Math.cos(a)*90,vy:-60-Math.random()*80,life:.9})}
+  }else{
+    react={kind:"bad",t:.9};
+    say(junkStreak()>=4?pick(LINES.sad):p.k==="rage"?pick(LINES.rage):p.k==="bait"?pick(LINES.bait):pick(LINES.bad));
+    for(let i=0;i<5;i++)sparks.push({kind:"stink",x:g.cx+(Math.random()-.5)*g.sw*.5,y:g.top+10,vx:(Math.random()-.5)*30,vy:-25-Math.random()*25,life:1.3})
+  }
+}
+function drawFace(g){
+  const W2=g.sw*g.sx,H2=g.sh*g.sy,u=Math.max(.9,g.sw/250),ey=-H2*.12,ex=W2*.15,m=md,sad=Math.max(0,-m),hap=Math.max(0,m),rk=react&&react.kind;
+  ctx.fillStyle=C.ink;ctx.strokeStyle=C.ink;ctx.lineCap="round";ctx.lineJoin="round";ctx.lineWidth=4*u+1;
+  if(pressing&&s>.4){
+    [-1,1].forEach(d=>{ctx.beginPath();ctx.moveTo(d*ex-d*8*u,ey-6*u);ctx.lineTo(d*ex+d*4*u,ey);ctx.lineTo(d*ex-d*8*u,ey+6*u);ctx.stroke()});
+    const mw=14*u,my=ey+20*u;ctx.fillStyle="#fff";rr(-mw,my-5*u,mw*2,10*u,4*u);ctx.fill();ctx.stroke();
+    ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-mw,my);ctx.lineTo(mw,my);ctx.stroke();return;
+  }
+  if(hap>.35){ctx.fillStyle=`rgba(255,90,140,${(.4*hap).toFixed(2)})`;[-1,1].forEach(d=>{ctx.beginPath();ctx.ellipse(d*(ex+17*u),ey+15*u,9*u,5.5*u,0,0,Math.PI*2);ctx.fill()});ctx.fillStyle=C.ink}
+  // brows
+  ctx.lineWidth=3.5*u+1;
+  if(sad>.15||hap>.3||rk)[-1,1].forEach(d=>{const ix=d*ex-d*9*u,ox=d*ex+d*9*u,by=ey-16*u-hap*4*u;
+    let iy=by-sad*7*u,oy=by+sad*3*u;if(rk==="bad"){iy=by+4*u;oy=by-3*u}
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.quadraticCurveTo((ix+ox)/2,Math.min(iy,oy)-2*u-hap*3*u,ix,iy);ctx.stroke()});
+  // eyes
+  ctx.lineWidth=4*u+1;
+  if(rk==="good")[-1,1].forEach(d=>{ctx.fillStyle=C.ink;ctx.beginPath();ctx.ellipse(d*ex,ey,9*u,11*u,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(d*ex+3*u,ey-4*u,3.4*u,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(d*ex-3*u,ey+3.5*u,1.6*u,0,Math.PI*2);ctx.fill()});
+  else if(rk==="bad")[-1,1].forEach(d=>{ctx.beginPath();ctx.moveTo(d*ex-7*u,ey+1*u);ctx.lineTo(d*ex+7*u,ey+1*u);ctx.stroke()});
+  else if(m>.72)[-1,1].forEach(d=>{ctx.beginPath();ctx.arc(d*ex,ey+4*u,7*u,Math.PI*1.1,Math.PI*1.9);ctx.stroke()});
+  else if(blinkOn>0)[-1,1].forEach(d=>{ctx.beginPath();ctx.moveTo(d*ex-6*u,ey+2*u);ctx.lineTo(d*ex+6*u,ey+2*u);ctx.stroke()});
+  else{const lid=Math.min(.6,sad*.5+dry*.4);
+    [-1,1].forEach(d=>{const rx=(6+2.5*hap)*u,ry=(8+2.5*hap)*u,top=ey-ry+lid*1.6*ry;
+      ctx.save();ctx.beginPath();ctx.rect(d*ex-rx-3,top,rx*2+6,ry*3);ctx.clip();
+      ctx.fillStyle=C.ink;ctx.beginPath();ctx.ellipse(d*ex,ey,rx,ry,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(d*ex+rx*.35,Math.max(top+rx*.4,ey-ry*.35),Math.max(1.2,rx*.38),0,Math.PI*2);ctx.fill();ctx.restore();
+      if(lid>.12){ctx.beginPath();ctx.moveTo(d*ex-rx-2*u,top);ctx.lineTo(d*ex+rx+2*u,top);ctx.stroke()}})}
+  // mouth
+  const my=ey+21*u;ctx.fillStyle=C.ink;ctx.lineWidth=4*u+1;
+  if(rk==="good"){ctx.beginPath();ctx.ellipse(0,my+3*u,6*u,8*u,0,0,Math.PI*2);ctx.fill()}
+  else if(rk==="bad"){const mw=12*u;ctx.beginPath();ctx.moveTo(-mw,my+2*u);for(let i=1;i<=6;i++)ctx.lineTo(-mw+i*mw/3,my+(i%2?-2:3)*u);ctx.stroke()}
+  else if(m>.35){const mw=(10+8*hap)*u,mh=(6+9*hap)*u;ctx.beginPath();ctx.moveTo(-mw,my-2*u);ctx.quadraticCurveTo(0,my+mh*2,mw,my-2*u);ctx.closePath();ctx.fill();
+    ctx.save();ctx.clip();ctx.fillStyle="#ff6b9a";ctx.beginPath();ctx.ellipse(0,my+mh*1.15,mw*.55,mh*.55,0,0,Math.PI*2);ctx.fill();ctx.restore()}
+  else{const mw=(11-3*sad)*u,c=m*18*u,o=c<0?5*u:0;ctx.beginPath();ctx.moveTo(-mw,my+o);ctx.quadraticCurveTo(0,my+c+o,mw,my+o);ctx.stroke()}
+  if(m<-.65&&!rk&&!reduce){const tt=(perf%1800)/1800,tx=-ex-3*u,ty=ey+10*u+tt*28*u;ctx.globalAlpha=1-tt;ctx.fillStyle=C.water;
+    ctx.beginPath();ctx.moveTo(tx,ty-6*u);ctx.quadraticCurveTo(tx+5*u,ty+2*u,tx,ty+4*u);ctx.quadraticCurveTo(tx-5*u,ty+2*u,tx,ty-6*u);ctx.fill();ctx.globalAlpha=1}
+}
+function drawOverlay(g){
+  for(const p of sparks){ctx.globalAlpha=Math.min(1,p.life*1.5);
+    if(p.kind==="star"){const r=7;ctx.fillStyle=C.sponge;ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.beginPath();
+      for(let i=0;i<8;i++){const a=i*Math.PI/4,rr2=i%2?r*.38:r;ctx.lineTo(p.x+Math.cos(a)*rr2,p.y+Math.sin(a)*rr2)}ctx.closePath();ctx.fill();ctx.stroke()}
+    else{ctx.fillStyle="rgba(155,125,255,.55)";ctx.beginPath();ctx.arc(p.x+Math.sin(perf/200+p.y)*4,p.y,6+(1.3-p.life)*6,0,Math.PI*2);ctx.fill()}
+  }ctx.globalAlpha=1;
+  if(bubble){const a=Math.min(1,bubble.t*3);ctx.globalAlpha=a;ctx.font="700 14px Rubik,system-ui,sans-serif";
+    const tw=ctx.measureText(bubble.text).width,bw=tw+24,bh=32;
+    const bx=Math.max(8,Math.min(W-bw-8,g.cx+g.sw*g.sx*.5-14)),by=g.cy-g.sh*g.sy*.5+4;
+    ctx.fillStyle="#fff";ctx.strokeStyle=C.ink;ctx.lineWidth=3;rr(bx,by,bw,bh,14);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx+14,by+bh-2);ctx.lineTo(bx+8,by+bh+14);ctx.lineTo(bx+30,by+bh-2);ctx.fill();
+    ctx.beginPath();ctx.moveTo(bx+14,by+bh);ctx.lineTo(bx+8,by+bh+14);ctx.lineTo(bx+30,by+bh);ctx.stroke();
+    ctx.fillStyle=C.ink;ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillText(bubble.text,bx+12,by+bh/2+1);ctx.textAlign="center";ctx.globalAlpha=1}
+}
+function geo(){
+  const sw=Math.min(W*.6,320)*sz,sh=sw*.6,bottom=H*.58,sadF=Math.max(0,-md);
+  const sy=1-.46*s-.07*sadF+(reduce?0:Math.sin(perf/(md<0?1100:520))*(.006+.014*Math.max(0,md))),sx=1+.28*s+.06*sadF;
+  return{sw,sh,cx:W/2,bottom,sx,sy,top:bottom-sh*sy,cy:bottom-sh*sy/2};
+}
+function glass(){const gw=Math.min(150,W*.32),gh=Math.min(120,H*.2);return{gw,gh,x:W/2-gw/2,y:H-gh-18,b:H-18}}
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mixA=(A,B,t)=>A.map((v,i)=>Math.round(v+(B[i]-v)*t));
+const rgb=a=>`rgb(${a.join(",")})`;
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):ctx.rect(x,y,w,h)}
+function splash(x,y,col,n){for(let i=0;i<n;i++)drops.push({x,y,vx:(Math.random()-.5)*220,vy:-80-Math.random()*160,r:1.5+Math.random()*2.5,kind:"fx",col,life:.6})}
+
+/* ---------- update ---------- */
+function update(dt){
+  tickMood(dt);
+  const target=pressing?1:0;
+  sv+=(target-s)*(pressing?90:150)*dt; sv*=Math.pow(pressing?.02:.06,dt); s+=sv*dt;
+  s=Math.max(-.25,Math.min(1.05,s));
+  const g=geo();
+  for(const c of chips){
+    c.t+=dt/(reduce?.35:.7);const t=Math.min(1,c.t),e=t*t*(3-2*t);
+    const tx=g.cx,ty=g.cy,mx=(c.sx+tx)/2,my=Math.min(c.sy,ty)-90;
+    c.x=(1-e)*(1-e)*c.sx+2*(1-e)*e*mx+e*e*tx;
+    c.y=(1-e)*(1-e)*c.sy+2*(1-e)*e*my+e*e*ty;
+    if(t>=1){c.done=true;arrive(c.p);sv-=1.2;splash(tx,ty,C.water,4)}
+  }
+  chips=chips.filter(c=>!c.done);
+  if(s>.25&&queue.length){
+    emitAcc+=dt*s*7;
+    while(emitAcc>=1&&queue.length){
+      emitAcc--;
+      const p=queue.splice(Math.floor(Math.random()*queue.length),1)[0];
+      const x=g.cx+(Math.random()-.5)*g.sw*g.sx*.7;
+      if(p.k==="info")drops.push({x,y:g.bottom+2,vx:(g.cx-x)*1.6,vy:30,r:9,kind:"gold",p});
+      else{const dir=Math.random()<.5?-1:1;
+        drops.push({x:g.cx+dir*g.sw*g.sx*.48,y:g.cy+(Math.random()-.5)*20,vx:dir*(160+Math.random()*180),vy:-120-Math.random()*120,r:7,kind:"rot",p})}
+    }
+  } else emitAcc=0;
+  if(queue.length>=CAP*.8&&Math.random()<dt*2)drops.push({x:g.cx+(Math.random()-.5)*g.sw*.6,y:g.bottom,vx:0,vy:10,r:3,kind:"fx",col:C.water,life:1.2});
+  const gl=glass(),level=Math.min(gl.gh-12,kept*9);
+  for(const d of drops){
+    d.vy+=900*dt;d.x+=d.vx*dt;d.y+=d.vy*dt;
+    if(d.kind==="fx"){d.life-=dt;if(d.life<=0||d.y>H)d.dead=true;continue}
+    const inGlass=d.x>gl.x+6&&d.x<gl.x+gl.gw-6;
+    if(d.kind==="gold"&&inGlass&&d.y>gl.b-level-4){d.dead=true;sfx("drip");collect(d.p);splash(d.x,gl.b-level,C.gold,8)}
+    else if(d.y>H-14){d.dead=true;
+      if(d.kind==="gold")collect(d.p);
+      sfx(d.kind==="gold"?"drip":"splat");splash(d.x,H-14,d.kind==="gold"?C.gold:C.rot,10);
+      if(d.kind==="rot")floats.push({x:d.x,y:H-30,text:d.p.k==="rage"?"rage bait":d.p.k==="bait"?"clickbait":"brain rot",life:1.2});
+    }
+    if(d.x<-30||d.x>W+30){d.dead=true;if(d.kind==="gold")collect(d.p)}
+  }
+  drops=drops.filter(d=>!d.dead);
+  for(const f of floats){f.life-=dt;f.y-=40*dt}
+  floats=floats.filter(f=>f.life>0);
+}
+
+function collect(p){
+  kept++;
+  if(!keptSet.has(p.h)){keptSet.add(p.h);takes.push(p);renderJar();sfx("coin")}
+  stats();
+}
+function renderJar(){
+  const el=$("#cards");
+  if(!takes.length){el.innerHTML='<div class="empty">Nothing yet. Squeeze the sponge to wring out what you learned.</div>';return}
+  el.innerHTML="";
+  takes.slice().reverse().forEach((p,i)=>{const c=document.createElement("div");c.className="card";if(i)c.style.animation="none";
+    if(p.thumb)c.classList.add("has-img");
+    c.innerHTML=`${p.thumb?`<img src="${p.thumb}" alt="">`:""}<div><div class="src"><span>${esc(p.h)}</span><span>${esc(p.topic)}</span></div><div class="txt">${esc(p.take)}</div></div>`;el.appendChild(c)});
+}
+function stats(){
+  $("#sAbs").textContent=absorbed;
+  $("#sRot").textContent=(absorbed?Math.round(rotCount/absorbed*100):0)+"%";
+  $("#sKeep").textContent=takes.length;
+  $("#sAd").textContent="$"+(absorbed*0.0047).toFixed(3);
+}
+
+/* ---------- draw ---------- */
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const g=geo(),gl=glass();
+  ctx.fillStyle="rgba(10,15,61,.35)";ctx.fillRect(0,H-14,W,14);
+  const plateW=g.sw*1.2,plateH=24,py=g.top-plateH-4+(1-Math.min(1,Math.max(0,s)))*-26;
+  ctx.fillStyle="rgba(255,255,255,.25)";ctx.fillRect(W/2-7,0,14,Math.max(0,py));
+  ctx.fillStyle=C.ink;rr(W/2-plateW/2+5,py+5,plateW,plateH,10);ctx.fill();
+  ctx.fillStyle=C.press;rr(W/2-plateW/2,py,plateW,plateH,10);ctx.fill();
+  ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
+  ctx.fillStyle="#fff";ctx.font="700 12px 'JetBrains Mono',monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillText(pressing?"SQUEEZING…":"HOLD SPACE TO SQUEEZE",W/2,py+plateH/2+1);
+
+  const wet=Math.min(1,queue.length/CAP);
+  const rotIn=queue.length?queue.filter(p=>p.k!=="info").length/queue.length:0;
+  const wetCol=mixA(hex(C.gold),hex("#7a5cff"),rotIn);
+  const baseA=mixA(hex("#c9b98f"),hex(C.sponge),vivid);
+  const body=rgb(mixA(baseA,wetCol,wet*.6));
+  const hop=(!reduce&&md>.5&&!pressing)?Math.abs(Math.sin(perf/260))*14*(md-.5):0;
+
+  ctx.save();ctx.translate(g.cx,g.cy-hop);
+  ctx.fillStyle="rgba(10,15,61,.35)";ctx.beginPath();ctx.ellipse(8,g.sh*g.sy/2+10+hop,g.sw*g.sx*.48,10,0,0,Math.PI*2);ctx.fill();
+  const path=new Path2D();
+  shape.forEach((p,i)=>{const jj=p.j*(1+dry*1.6),pinch=1-dry*.12*Math.max(0,-p.y*2),x=(p.x*pinch+jj)*g.sw*g.sx,y=(p.y+jj)*g.sh*g.sy;i?path.lineTo(x,y):path.moveTo(x,y)});path.closePath();
+  ctx.fillStyle=C.ink;ctx.save();ctx.translate(6,6);ctx.fill(path);ctx.restore();
+  const grad=ctx.createLinearGradient(0,-g.sh/2,0,g.sh/2);grad.addColorStop(0,rgb(mixA(baseA,[255,250,215],.25+.55*vivid)));grad.addColorStop(.25,body);grad.addColorStop(1,body);
+  ctx.fillStyle=grad;ctx.fill(path);
+  if(wet>0){ctx.save();ctx.clip(path);
+    const lh=g.sh*g.sy*wet,ly=g.sh*g.sy/2-lh;
+    ctx.fillStyle=rotIn>.5?"rgba(122,92,255,.35)":"rgba(255,184,28,.35)";
+    ctx.beginPath();ctx.moveTo(-g.sw,g.sh);for(let x=-g.sw;x<=g.sw;x+=8)ctx.lineTo(x,ly+Math.sin(x/18+perf/250)*4);ctx.lineTo(g.sw,g.sh);ctx.fill();ctx.restore()}
+  if(dry>.2){ctx.save();ctx.clip(path);ctx.strokeStyle=`rgba(10,15,61,${(dry*.35).toFixed(2)})`;ctx.lineWidth=2;
+    [[-.3,-.22],[.26,.12],[-.08,.28],[.33,-.26],[-.38,.15]].forEach(([fx,fy])=>{const x=fx*g.sw*g.sx,y=fy*g.sh*g.sy;ctx.beginPath();ctx.moveTo(x-12,y);ctx.quadraticCurveTo(x,y-5,x+12,y+2);ctx.stroke()});ctx.restore()}
+  ctx.lineWidth=3.5;ctx.strokeStyle=C.ink;ctx.stroke(path);
+  const pore=rgb(mixA(baseA,hex("#8f6a1c"),.5+wet*.3));
+  for(const h of holes){if(Math.abs(h.x)<.27&&h.y>-.36&&h.y<.2)continue;ctx.fillStyle=pore;ctx.beginPath();ctx.ellipse(h.x*g.sw*g.sx,h.y*g.sh*g.sy,h.r*g.sw*g.sx,h.r*g.sw*g.sy*.85,0,0,Math.PI*2);ctx.fill()}
+  drawFace(g);
+  ctx.lineCap="butt";
+  ctx.restore();
+
+  const mw=Math.min(200,W*.5),mx=W/2-mw/2,my=g.bottom+30;
+  ctx.fillStyle="rgba(10,15,61,.45)";rr(mx,my,mw,10,5);ctx.fill();
+  ctx.fillStyle=wet>.8?C.press:C.water;rr(mx,my,Math.max(0.01,mw*wet),10,5);ctx.fill();
+  ctx.fillStyle="#fff";ctx.font="700 11px 'JetBrains Mono',monospace";
+  ctx.fillText(wet>=.8?"SATURATED: SQUEEZE ME":`SOAKED ${Math.round(wet*100)}%`,W/2,my+24);
+
+  const level=Math.min(gl.gh-12,kept*9);
+  ctx.save();rr(gl.x,gl.y,gl.gw,gl.gh,[4,4,18,18]);ctx.clip();
+  ctx.fillStyle="rgba(255,255,255,.12)";ctx.fillRect(gl.x,gl.y,gl.gw,gl.gh);
+  if(level>0){const lg=ctx.createLinearGradient(0,gl.b-level,0,gl.b);lg.addColorStop(0,"#ffe17a");lg.addColorStop(1,C.gold);ctx.fillStyle=lg;
+    ctx.beginPath();ctx.moveTo(gl.x,gl.b);for(let x=gl.x;x<=gl.x+gl.gw;x+=6)ctx.lineTo(x,gl.b-level+Math.sin(x/12+perf/200)*2.5);ctx.lineTo(gl.x+gl.gw,gl.b);ctx.fill()}
+  ctx.restore();
+  ctx.lineWidth=3;ctx.strokeStyle="#fff";rr(gl.x,gl.y,gl.gw,gl.gh,[4,4,18,18]);ctx.stroke();
+  ctx.fillStyle=level>gl.gh*.5?C.ink:"#fff";ctx.font="400 16px 'Bagel Fat One',sans-serif";ctx.fillText("KEEP",W/2,gl.b-16);
+
+  for(const c of chips){const k=1-Math.min(1,c.t)*.6;
+    ctx.save();ctx.translate(c.x,c.y);ctx.scale(k,k);ctx.rotate(c.t*1.5);
+    const im=c.p.imgObj;
+    if(im&&im.complete&&im.naturalWidth){const iw=58,ih=Math.min(124,iw*im.naturalHeight/im.naturalWidth);
+      ctx.fillStyle="#fff";rr(-iw/2-4,-ih/2-4,iw+8,ih+8,8);ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=C.ink;ctx.stroke();
+      ctx.drawImage(im,-iw/2,-ih/2,iw,ih);ctx.restore();continue}
+    ctx.fillStyle="#fff";rr(-34,-12,68,24,8);ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=C.ink;ctx.stroke();
+    ctx.fillStyle=c.p.k==="info"?C.gold:c.p.k==="fun"?C.water:C.rot;rr(-28,-6,12,12,3);ctx.fill();
+    ctx.fillStyle=C.ink;ctx.font="700 10px 'JetBrains Mono',monospace";ctx.textAlign="left";ctx.fillText(c.p.h.replace("📸 ","").slice(0,8),-12,1);ctx.textAlign="center";
+    ctx.restore()}
+  for(const d of drops){
+    const col=d.kind==="gold"?C.gold:d.kind==="rot"?C.rot:d.col;
+    ctx.fillStyle=col;ctx.globalAlpha=d.kind==="fx"?Math.max(0,d.life/.6):1;
+    if(d.kind==="gold"){ctx.shadowColor=C.gold;ctx.shadowBlur=18}
+    const sp=Math.min(1.8,1+Math.abs(d.vy)/900);
+    ctx.beginPath();ctx.ellipse(d.x,d.y,d.r/sp,d.r*sp,Math.atan2(d.vy,d.vx)-Math.PI/2,0,Math.PI*2);ctx.fill();
+    if(d.kind!=="fx"){ctx.lineWidth=2;ctx.strokeStyle=C.ink;ctx.stroke()}
+    ctx.shadowBlur=0;ctx.globalAlpha=1}
+  ctx.font="700 11px 'JetBrains Mono',monospace";
+  for(const f of floats){ctx.globalAlpha=Math.min(1,f.life);ctx.fillStyle=C.rot;ctx.fillText(f.text,f.x,f.y);ctx.globalAlpha=1}
+  drawOverlay(g);
+}
+function frame(t){const dt=Math.min(.033,(t-last)/1000);last=t;perf=t;if(view==="sponge"){update(dt);draw()}requestAnimationFrame(frame)}
+function resize(){dpr=Math.min(2,devicePixelRatio||1);const r=cv.getBoundingClientRect();if(!r.width)return;W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+new ResizeObserver(resize).observe(cv);resize();
+
+/* ---------- derived data ---------- */
+function topicCounts(){const m={};TOPICS.forEach(t=>m[t]=0);history.forEach(p=>m[p.topic]=(m[p.topic]||0)+1);return m}
+function topTopics(n){const m=topicCounts();return Object.entries(m).filter(e=>e[1]).sort((a,b)=>b[1]-a[1]).slice(0,n)}
+function learnShare(){return history.length?history.filter(p=>p.k==="info").length/history.length:0}
+const minutes=()=>Math.max(1,Math.round((mode==="video"?watched:history.length*SEC_PER_POST)/60));
+const PERSONA={Pets:["The Golden Retriever Whisperer","You'd watch a dog sneeze on loop. Honestly, fair."],
+  Outrage:["The Doom Goblin","Mad at a city you don't live in, about a thing you won't remember."],
+  Clickbait:["The Part 2 Hostage","You have commented YES on at least one stranger's video."],
+  Memes:["The Last Fry","Peak comedic taste, zero retained facts."],
+  Dance:["The 8-Count Dreamer","You saved the tutorial. You will not learn the tutorial."],
+  Money:["The Spreadsheet Romantic","Your feed is quietly trying to make you rich."],
+  Health:["The Sleep Optimizer","Scrolling about sleep at 1 AM is a choice."],
+  Language:["The Accidental Polyglot","Three false friends down, a whole language to go."],
+  Tech:["The Terminal Gremlin","Your algorithm knows you alias git commands."],
+  History:["The Timeline Breaker","You will bring up Cleopatra at dinner."],
+  Cooking:["The Pasta Water Purist","You now salt with conviction."]};
+const ALGO={Pets:"owns a dog, or desperately wants one",Outrage:"gets a little thrill from being annoyed",Clickbait:"can't leave a cliffhanger alone",
+  Memes:"needs a laugh more than a lesson",Dance:"is one good weekend away from learning a trend",Money:"just opened a banking app and panicked",
+  Health:"is tired, all the time",Language:"is planning a trip they haven't booked",Tech:"has 40 browser tabs open right now",
+  History:"loves a fact that breaks their brain",Cooking:"is cooking pasta more than they admit"};
+
+/* ---------- skill map ---------- */
+function renderMap(){
+  const m=topicCounts(),max=Math.max(1,...Object.values(m)),T=mapTopics(),n=T.length,S=440,c=S/2,R=150;
+  const pt=(i,r)=>{const a=-Math.PI/2+i/n*Math.PI*2;return[c+Math.cos(a)*r,c+Math.sin(a)*r]};
+  let svg=`<svg viewBox="0 0 ${S} ${S}" role="img" aria-label="Radar map of feed topics">`;
+  [.25,.5,.75,1].forEach(f=>{svg+=`<polygon points="${T.map((_,i)=>pt(i,R*f).join(",")).join(" ")}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>`});
+  T.forEach((t,i)=>{const[x,y]=pt(i,R);svg+=`<line x1="${c}" y1="${c}" x2="${x}" y2="${y}" stroke="rgba(255,255,255,.14)"/>`});
+  const poly=T.map((t,i)=>pt(i,8+(R-8)*m[t]/max).join(",")).join(" ");
+  svg+=`<polygon points="${poly}" fill="rgba(255,216,61,.35)" stroke="#ffd83d" stroke-width="3" stroke-linejoin="round"/>`;
+  T.forEach((t,i)=>{const[x,y]=pt(i,8+(R-8)*m[t]/max);const col=LEARN.has(t)?C.gold:C.rot;
+    svg+=`<circle cx="${x}" cy="${y}" r="${m[t]?6:3}" fill="${col}" stroke="#0a0f3d" stroke-width="2"/>`;
+    const[lx,ly]=pt(i,R+30);svg+=`<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" fill="${col}" font-family="Rubik,sans-serif" font-weight="700" font-size="13">${t}</text>`});
+  svg+=`<circle cx="${c}" cy="${c}" r="4" fill="#fff"/></svg>`;
+  $("#map").innerHTML=svg;
+  const top=topTopics(1)[0];
+  $("#mapCallout").innerHTML=history.length?`<div class="note" style="color:#4a4f7a">THE ALGORITHM'S FAVORITE SUBJECT FOR YOU</div><b>${top[0]}</b><div>${Math.round(top[1]/history.length*100)}% of your feed. Only ${Math.round(learnShare()*100)}% of everything you saw taught you something.</div>`:`<b>Nothing soaked up yet</b><div>Start scrolling on the Sponge tab.</div>`;
+  $("#legend").innerHTML=T.map(t=>({t,v:m[t]})).sort((a,b)=>b.v-a.v).map(({t,v})=>`<div class="lrow"><span>${t}</span><div class="lbar"><i style="width:${v/max*100}%;background:${LEARN.has(t)?C.gold:C.rot}"></i></div><b>${v}</b></div>`).join("");
+}
+
+/* ---------- goldfish quiz: questions about what was actually on screen ----------
+   With the backend: Gemini writes them from the details it read in each post (see /api/recap).
+   Without it: hand-written questions for the sample posts you've seen. */
+let qTimer=null,quizData=null,quizI=0,quizRound=0;
+const SAMPLE_Q={
+ "@moneyminute":{question:"The money video you scrolled past: what quietly eats idle cash in a checking account?",options:["Inflation","Overdraft fees","Compound interest","Exchange rates"],answer_index:0,explanation:"Idle cash loses value to inflation; a high-yield savings account closes most of that gap."},
+ "@sleep.lab":{question:"According to the sleep clip, what matters most for sleep quality?",options:["A consistent wake-up time","A consistent bedtime","Exactly 8 hours","No screens after 9 pm"],answer_index:0,explanation:"A consistent wake-up time beats a consistent bedtime."},
+ "@habla.ya":{question:"In the Spanish false-friends video, what does “embarazada” actually mean?",options:["Pregnant","Embarrassed","Married","Busy"],answer_index:0,explanation:"“Embarazada” means pregnant; embarrassed is “avergonzado”."},
+ "@dev.tips":{question:"From the git tips post: what does `git switch -` do?",options:["Jumps back to the previous branch","Deletes the current branch","Creates a new branch","Undoes the last commit"],answer_index:0,explanation:"It switches straight back to the branch you were on before."},
+ "@pastfacts":{question:"The history post said Cleopatra lived closer in time to…",options:["The Moon landing","The founding of Rome","The first Olympics","The printing press"],answer_index:0,explanation:"She lived closer to the Moon landing than to the building of the Great Pyramid."},
+ "@kitchen.sci":{question:"The cooking tip: how salty should pasta water be?",options:["Like mild broth","Like seawater","Barely salted","Salt only after it boils"],answer_index:0,explanation:"Like mild broth, roughly 1 tbsp per 4 quarts."}};
+function shuffleQ(q){const idx=q.options.map((_,i)=>i).sort(()=>Math.random()-.5);return{...q,options:idx.map(i=>q.options[i]),answer_index:idx.indexOf(q.answer_index)}}
+function localQuiz(){const seen=[...new Set(history.filter(p=>SAMPLE_Q[p.h]).map(p=>p.h))].slice(-5);return seen.map(h=>({...SAMPLE_Q[h],post:history.find(p=>p.h===h)}))}
+function renderQuiz(){
+  clearInterval(qTimer);
+  const el=$("#quiz"),live=typeof requestQuiz==="function"&&!!backend,n=typeof aiPosts!=="undefined"?aiPosts.length:0;
+  if(!quizData&&!live){const l=localQuiz();if(l.length)quizData=l.map(shuffleQ)}
+  if(!quizData||!quizData.length){
+    const msg=live?(n?`The sponge has read ${n} post${n===1?"":"s"} so far. Your quiz is written automatically when the recording ends.`:"Load a screen recording. When it ends, Gemini writes questions about what was actually on your screen."):"Let the sponge soak up a few useful posts first. The questions come from what you actually scrolled past.";
+    el.innerHTML=`<div class="qcard"><h2>Nothing to quiz you on yet</h2><p>${msg}</p>${live&&n>=2?`<button class="btn y" id="qmake" type="button">Write a quiz from ${n} posts now</button>`:""}</div>`;
+    const mk=$("#qmake");if(mk)mk.onclick=()=>{mk.disabled=true;mk.textContent="Writing questions…";requestQuiz()};
+    return}
+  if(quizI>=quizData.length){
+    const r=quizRound,t=quizData.length;
+    el.innerHTML=`<div class="qcard" style="text-align:center"><div class="note" style="color:#4a4f7a">YOUR RECALL</div><div class="big">${r}/${t}</div>
+      <h2>${r/t>=.6?"You actually absorbed some of that 🧠":"Your feed went in one eye and out the other 🐟"}</h2>
+      <p>${r/t>=.6?"Most people can't recall what they scrolled past ten minutes ago.":"That's normal. Feeds are built to be scrolled, not remembered."}</p>
+      <button class="btn y" id="qagain" type="button">Try again</button></div>`;
+    $("#qagain").onclick=()=>{quizI=0;quizRound=0;quizData=quizData.map(shuffleQ);renderQuiz()};return}
+  const q=quizData[quizI],src=q.post;
+  el.innerHTML=`<div class="qcard"><div class="note" style="color:#4a4f7a">QUESTION ${quizI+1} OF ${quizData.length}</div>
+    ${src?`<div class="qsrc">${src.thumb?`<img src="${src.thumb}" alt="">`:""}<span>From: ${esc(src.t)}</span></div>`:""}
+    <h2>${esc(q.question)}</h2><div class="timer"><i id="qbar"></i></div>
+    <div class="opts">${q.options.map((o,i)=>`<button class="opt" type="button" data-i="${i}">${esc(o)}</button>`).join("")}</div>
+    <p class="qexp" id="qexp" hidden></p></div>
+    <div class="verdict" id="verdict" aria-live="polite"></div>
+    <div style="text-align:center"><button class="btn y" id="qnext" type="button" hidden>${quizI+1<quizData.length?"Next question":"See my score"}</button></div>`;
+  const T=20;let left=T;const bar=$("#qbar");
+  const finish=(i)=>{clearInterval(qTimer);const btns=[...el.querySelectorAll(".opt")];btns.forEach(b=>b.disabled=true);
+    btns[q.answer_index].classList.add("right");quizScore.total++;
+    if(i===q.answer_index){quizScore.right++;quizRound++;$("#verdict").textContent="You remembered that 🧠";sfx("right")}
+    else{if(i!=null)btns[i].classList.add("wrong");$("#verdict").textContent=i==null?"Time's up. The goldfish wins 🐟":"The goldfish wins this one 🐟";sfx("wrong")}
+    if(q.explanation){const x=$("#qexp");x.textContent=q.explanation;x.hidden=false}
+    const nx=$("#qnext");nx.hidden=false;nx.onclick=()=>{quizI++;renderQuiz()};nx.focus()};
+  el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>finish(+b.dataset.i));
+  qTimer=setInterval(()=>{left-=.1;bar.style.width=Math.max(0,left/T*100)+"%";if(left<=0)finish(null)},100);
+}
+
+/* ---------- screen time ---------- */
+const APPS=[["TikTok",134,"#ff2e8b"],["Instagram",92,"#ffb81c"],["YouTube",58,"#5ef2ff"],["X",41,"#9b7dff"],["Reddit",37,"#ff7a3d"],["Duolingo",6,"#7dff9b"]];
+function fmt(m){return m>=60?`${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`:`${m}m`}
+function renderTime(){
+  const sess=minutes(),rows=[...APPS,["This session",sess,"#ffd83d"]],max=Math.max(...rows.map(r=>r[1]));
+  const total=APPS.reduce((a,r)=>a+r[1],0)+sess;
+  $("#totalTime").textContent=fmt(total);
+  $("#apps").innerHTML=rows.map(([n,m,c])=>`<div class="app"><span>${n}</span><div class="bar"><i style="width:${m/max*100}%;background:${c}"></i></div><b>${fmt(m)}</b></div>`).join("");
+  const social=APPS.slice(0,5).reduce((a,r)=>a+r[1],0);
+  $("#timeKpis").innerHTML=`<div class="kpi"><b>${fmt(social)}</b><small>in short-form feeds</small></div><div class="kpi"><b>${Math.round(social/(16*60)*100)}%</b><small>of your waking day</small></div><div class="kpi"><b>${Math.round(social*60/SEC_PER_POST).toLocaleString()}</b><small>posts at ~9 s each</small></div><div class="kpi"><b>6m</b><small>on the one learning app</small></div>`;
+  $("#couldHave").innerHTML=`<div class="note" style="color:#4a4f7a">IN ${fmt(social).toUpperCase()} YOU COULD HAVE</div><b>Read ${Math.round(social/2)} pages · walked ${(social/20).toFixed(1)} miles · learned ${Math.round(social*2)} Spanish words</b>`;
+}
+
+/* ---------- weekly ---------- */
+const WEEK=[["Sun",312],["Mon",241],["Tue",198],["Wed",276],["Thu",355],["Fri",368]];
+function renderWeek(){
+  const days=[...WEEK,["Today",APPS.reduce((a,r)=>a+r[1],0)+minutes()]],max=Math.max(...days.map(d=>d[1]));
+  const peak=days.reduce((a,d)=>d[1]>a[1]?d:a);
+  $("#weekBars").innerHTML=days.map(([d,m])=>`<div class="day"><em>${fmt(m)}</em><i class="${d===peak[0]?"hi":""}" style="height:${m/max*100}%"></i><small>${d}</small></div>`).join("");
+  const tot=days.reduce((a,d)=>a+d[1],0);
+  $("#weekKpis").innerHTML=`<div class="kpi"><b>${fmt(Math.round(tot/7))}</b><small>daily average</small></div><div class="kpi"><b>${saved.length+23}</b><small>posts saved this week</small></div><div class="kpi"><b>0</b><small>saved posts reopened</small></div><div class="kpi"><b>${Math.round(learnShare()*100)}%</b><small>of your feed was useful</small></div>`;
+  $("#savedList").innerHTML=saved.length?saved.slice().reverse().map(p=>`<div>${esc(p.t)}<div class="meta">${esc(p.h)} · saved today · never opened</div></div>`).join("")+`<div class="meta">+ 23 more from earlier this week</div>`
+    :`<div class="empty">Tap <b>Save</b> on posts in the feed. They'll pile up here, unopened, like in real life.</div>`;
+  $("#weekTakes").innerHTML=takes.length?takes.map(p=>`<div>${esc(p.take)}<div class="meta">${esc(p.h)} · ${esc(p.topic)}</div></div>`).join("")
+    :`<div class="empty">Squeeze the sponge to extract takeaways.</div>`;
+}
+
+/* ---------- wrapped ---------- */
+let wi=0,wTimer=null,slides=[];
+function buildSlides(){
+  const h=history.length,cnt=k=>history.filter(p=>p.k===k).length,pct=k=>h?Math.round(cnt(k)/h*100):0;
+  const top=topTopics(3),t1=top[0]?.[0]||"Memes",per=aiProfile?[esc(aiProfile.persona_name),esc(aiProfile.persona_line)]:(PERSONA[t1]||["The Feed Drifter","Your feed can't decide what you are. Neither can you."]);
+  const algo=top.map(([t])=>ALGO[t]).filter(Boolean);
+  const qs=quizScore.total?`${quizScore.right}/${quizScore.total}`:"0/0";
+  return[
+    {bg:"#ff2e8b",fg:"#fff",html:`<div class="kick">Your Sponge Wrapped</div><div class="huge">${h}</div><h3>posts soaked up in ${minutes()} minutes</h3><p>That's about ${Math.max(1,Math.round(h/30))} feeds' worth of thumb travel.</p>${history.some(p=>p.thumb)?`<div class="strip">${history.filter(p=>p.thumb).slice(-10).map(p=>`<img src="${p.thumb}" alt="">`).join("")}</div>`:""}`},
+    {bg:"#ffd83d",fg:"#0a0f3d",html:`<div class="kick">Feed nutrition facts</div><div class="nutri"><h4>Nutrition Facts</h4><div class="r th"><span>Serving size</span><b>${minutes()} min</b></div>
+      <div class="r"><span><b>Entertainment</b></span><span>${pct("fun")}%</span></div><div class="r"><span><b>Clickbait</b></span><span>${pct("bait")}%</span></div>
+      <div class="r"><span><b>Rage</b></span><span>${pct("rage")}%</span></div><div class="r th"><span><b>Actual information</b></span><span>${pct("info")}%</span></div>
+      <div class="r" style="border:0;font-size:12px"><span>Contains: ads, cliffhangers, at least one dog</span></div></div>`},
+    {bg:"#5ef2ff",fg:"#0a0f3d",html:`<div class="kick">Your top regions</div><h3>The algorithm kept you in</h3>${top.map(([t,v],i)=>`<p style="font-family:var(--f-display);font-size:28px">${i+1}. ${t} <span style="font-family:var(--f-mono);font-size:14px">${v} posts</span></p>`).join("")||"<p>Nothing yet</p>"}`},
+    {bg:"#9b7dff",fg:"#fff",html:`<div class="kick">Goldfish quiz</div><div class="huge">${qs}</div><h3>${quizScore.total&&quizScore.right/quizScore.total>=.5?"You beat the goldfish.":"The goldfish beat you."}</h3><p>A goldfish remembers things for months. You couldn't recall 3 posts ago.</p>`},
+    {bg:"#0a0f3d",fg:"#fff",html:`<div class="kick">What the algorithm thinks you are</div><h3 style="color:#ffd83d">Someone who ${aiProfile?.algorithm_thinks?esc(aiProfile.algorithm_thinks.replace(/^\s*(the algorithm thinks you are\s*)?(someone who\s*)?/i,"").replace(/\.\s*$/,"")):(algo.length?algo.slice(0,2).join(", and "):"is hard to read")}.</h3><p>It decided that from ${h} posts. You never told it any of this.</p>`},
+    {bg:"#ffb81c",fg:"#0a0f3d",html:`<div class="kick">What you actually kept</div><div class="huge">${takes.length}</div><h3>thing${takes.length===1?"":"s"} worth knowing</h3>${takes.slice(0,3).map(p=>`<p>• ${esc(p.take)}</p>`).join("")||"<p>Squeeze the sponge next time.</p>"}`},
+    {bg:"#ff2e8b",fg:"#fff",html:`<div class="kick">Your scroller persona</div><h3 style="font-size:clamp(34px,10vw,48px)">${per[0]}</h3><p>${per[1]}</p><div class="chips">${top.map(([t])=>`<span>${t}</span>`).join("")}</div><p style="font-family:var(--f-mono);font-size:12px;margin-top:10px">feedsponge · screenshot to share</p>`},
+  ];
+}
+function showSlide(i){
+  wi=i;const sl=slides[i];const story=$("#story");story.style.background=sl.bg;story.style.color=sl.fg;
+  $("#wslide").innerHTML=`<div class="slide">${sl.html}</div>`;
+  $("#wbars").innerHTML=slides.map((_,j)=>`<i><b style="width:${j<i?100:0}%"></b></i>`).join("");
+  clearInterval(wTimer);let t=0;const b=$("#wbars").children[i].firstElementChild;
+  wTimer=setInterval(()=>{t+=50;b.style.width=Math.min(100,t/5500*100)+"%";if(t>=5500)next()},50);
+}
+function next(){wi<slides.length-1?showSlide(wi+1):closeW()}
+function prev(){showSlide(Math.max(0,wi-1))}
+function openW(){slides=buildSlides();$("#wrapped").hidden=false;showSlide(0);$("#wclose").focus()}
+function closeW(){clearInterval(wTimer);$("#wrapped").hidden=true}
+$("#openWrapped").onclick=openW;
+$("#wclose").onclick=e=>{e.stopPropagation();closeW()};
+$("#story").addEventListener("click",e=>{const r=e.currentTarget.getBoundingClientRect();e.clientX-r.left<r.width*.3?prev():next()});
+$("#wrapped").addEventListener("click",e=>{if(e.target.id==="wrapped")closeW()});
+
+/* ---------- tabs ---------- */
+function setView(v){
+  view=v;document.querySelectorAll(".tab[data-v]").forEach(t=>t.setAttribute("aria-selected",t.dataset.v===v));
+  document.querySelectorAll(".view").forEach(s=>s.hidden=s.id!=="v-"+v);
+  if(v==="sponge")requestAnimationFrame(resize);
+  if(v==="map")renderMap();if(v==="quiz")renderQuiz();if(v==="time")renderTime();if(v==="week")renderWeek();
+  if(v!=="quiz")clearInterval(qTimer);
+}
+document.querySelectorAll(".tab[data-v]").forEach(t=>t.onclick=()=>setView(t.dataset.v));
+setInterval(()=>{if(view==="map")renderMap()},2500);
+
+/* ---------- input ---------- */
+const sq=$("#squeezeBtn");
+function setPress(v){if(v&&!pressing&&queue.length){say(pick(LINES.sqz),true);sfx("squeeze")}pressing=v;sq.classList.toggle("down",v)}
+addEventListener("keydown",e=>{
+  if(!$("#wrapped").hidden){if(e.key==="ArrowRight"||e.code==="Space"){e.preventDefault();next()}else if(e.key==="ArrowLeft")prev();else if(e.key==="Escape")closeW();return}
+  if(e.code==="Space"&&view==="sponge"&&!["INPUT","TEXTAREA"].includes(e.target.tagName)){e.preventDefault();if(!e.repeat)setPress(true)}});
+addEventListener("keyup",e=>{if(e.code==="Space"){if(view==="sponge")e.preventDefault();setPress(false)}});
+sq.addEventListener("pointerdown",e=>{e.preventDefault();sq.setPointerCapture(e.pointerId);setPress(true)});
+["pointerup","pointercancel","lostpointercapture"].forEach(ev=>sq.addEventListener(ev,()=>setPress(false)));
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);setPress(true)});
+["pointerup","pointercancel"].forEach(ev=>cv.addEventListener(ev,()=>setPress(false)));
+addEventListener("blur",()=>setPress(false));
+function syncPlay(){
+  const v=mode==="video";
+  if(v){if(playing){if(vid.ended)vid.currentTime=0;vid.play().catch(()=>{})}else vid.pause()}
+  $("#playBtn").textContent=playing?(v?"Pause recording":"Pause scrolling"):(v?(vid.ended?"Replay recording":"Resume recording"):"Resume scrolling");
+  $("#liveTag").textContent=playing?"● SCROLLING":(v&&vid.ended?"■ END":"❚❚ PAUSED");
+}
+$("#playBtn").onclick=()=>{if(!playing&&mode==="video"&&vid.ended&&aiMode){resetAll();aiNext=0}playing=!playing;syncPlay()};
+function resetAll(){queue=[];chips=[];drops=[];floats=[];history=[];takes=[];saved=[];absorbed=rotCount=kept=0;keptSet.clear();quizScore={right:0,total:0};quizI=0;quizRound=0;if(!(typeof aiPosts!=="undefined"&&aiPosts.length))quizData=null;
+  watched=0;vidN=0;lastSig=prevSig=null;pendingAt=0;curPost=null;
+  $("#savedN").textContent="0 saved";feed.querySelectorAll(".save").forEach(b=>b.setAttribute("aria-pressed","false"));renderJar();stats()}
+$("#resetBtn").onclick=()=>{resetAll();aiNext=0;if(mode==="video"){vid.currentTime=0;playing=true;syncPlay()}};
+
+// start with a little already soaked so the first frame isn't empty
+renderJar();stats();
+requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>
