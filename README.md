@@ -2,6 +2,8 @@
 
 Soak up your doomscroll, wring out what was worth knowing.
 
+**Live demo:** [Sponge Storybook](https://feed-sponge-771463214342.us-central1.run.app/storybook.html) · [Phone page](https://feed-sponge-771463214342.us-central1.run.app/m)
+
 Load a phone screen recording. The page samples one frame per second, Gemini splits it into posts and labels each one (topic, useful / fun / clickbait / rage, takeaway), and the posts fly into the sponge as the video plays. Hold **Space** to squeeze: useful posts drip into the jar, the rest squirts out.
 
 Tabs: Sponge · Skill Map · Goldfish Quiz · Screen Time · Weekly Report · Wrapped.
@@ -47,13 +49,17 @@ Then in `.env`: `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT=YOUR_PRO
 ## Deploy to Cloud Run (a public URL for judges)
 
 ```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.googleapis.com
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com
 PROJECT=$(gcloud config get-value project)
 PNUM=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
+gcloud iam service-accounts create feed-sponge-run --project="$PROJECT"
 gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:${PNUM}-compute@developer.gserviceaccount.com" --role="roles/aiplatform.user"
+  --member="serviceAccount:feed-sponge-run@${PROJECT}.iam.gserviceaccount.com" --role="roles/aiplatform.user"
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:${PNUM}-compute@developer.gserviceaccount.com" --role="roles/run.builder"
 
 gcloud run deploy feed-sponge --source . --region us-central1 --allow-unauthenticated \
+  --service-account "feed-sponge-run@${PROJECT}.iam.gserviceaccount.com" --max-instances 1 --min-instances 0 \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=gemini-3.5-flash
 ```
 On Cloud Run, Vertex auth uses the service account, so no key is shipped.
