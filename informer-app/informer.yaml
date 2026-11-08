@@ -1,0 +1,37 @@
+# Feed Sponge — Informer App
+# Public pages need Informer 2026.2.0+ on an origin-mode server. Check GET <your-server>/api/about,
+# then uncomment and set the floor so an older server refuses the deploy instead of half-working:
+# requires: { informer: '>=2026.2.0' }
+
+# The audience opens m.html from a QR code without an Informer login.
+public: true
+
+# Gemini, owned by this app. Used when Informer's own AI can't read images (see server/_lib/feed.js).
+integrations:
+  gemini:
+    name: Google Gemini
+    description: Reads screen-recording frames when Informer AI can't see images.
+    authType: apiKey
+    apiBaseUri: https://generativelanguage.googleapis.com/
+    apiKey: $env.GEMINI_API_KEY
+    apiKeyName: x-goog-api-key
+    apiKeyLocation: header
+    optional: true
+
+# Values are set in Admin → Environment after deploy (never in this file).
+env:
+  GEMINI_API_KEY:
+    description: Google Gemini API key (from aistudio.google.com). Only needed if Informer AI can't read images.
+  GEMINI_MODEL:
+    description: Gemini model id, e.g. gemini-3.5-flash (default).
+  AI_ENGINE:
+    description: "auto (default: Informer AI if it passes a vision check, else Gemini), informer, or gemini."
+  GROUNDING:
+    description: "on (default): fun-fact quiz questions are checked with Google Search through Gemini. off to skip."
+  INFORMER_MODEL:
+    description: Informer AI model slug for _object calls (default go_everyday).
+
+access:
+  apis:
+    # Public routes have no Informer user, so model calls run as the app owner (2026.2.0+).
+    - { method: POST, url: /api/models/*/_object, runAs: owner }

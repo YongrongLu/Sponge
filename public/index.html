@@ -138,7 +138,10 @@ kbd{font-family:var(--f-mono);font-size:12px;background:rgba(255,255,255,.22);bo
 .opt.right{background:var(--gold)} .opt.wrong{background:var(--rot);color:#fff}
 .opt:focus-visible{outline:3px solid var(--press);outline-offset:2px}
 .opts.imgs{grid-template-columns:repeat(4,minmax(0,1fr))}
-.qsrc{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px;font-weight:500;color:#4a4f7a}
+.qsrc{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px;font-size:13px;font-weight:500;color:#4a4f7a}
+.qtag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 9px;border-radius:99px;border:2px solid var(--ink);flex:none}
+.qtag.rec{background:#ffd83d;color:#1c1f4a}.qtag.int{background:#8fdcf2;color:#1c1f4a}
+.gsearch{margin-top:14px;text-align:left}.gsearch .gs-note{font-size:13px;margin:0 0 6px;opacity:.8}
 .qsrc img{width:30px;aspect-ratio:9/16;object-fit:cover;border-radius:5px;border:2px solid var(--ink);flex:none}
 .qexp{margin:14px 0 0;font-size:14px;line-height:1.45;background:#fff;border:2px solid var(--ink);border-radius:12px;padding:10px 12px}
 .qcard .big{color:var(--ink)}
@@ -441,7 +444,7 @@ function renderDbg(){const el=$("#dbg");if(!el||el.hidden)return;
   el.querySelector("ol").innerHTML=dbgLog.map(e=>`<li class="${e.err?"bad":""}"><b>${e.t}</b> ${e.kind} · ${e.frames||0} frames · ${e.err?esc(e.err):`${e.ms} ms · ${e.posts&&e.posts.length?e.posts.map(esc).join(" | "):"no new post"}`}</li>`).join("")||"<li>No Gemini calls yet.</li>"}
 addEventListener("keydown",e=>{if((e.key==="d"||e.key==="D")&&!e.metaKey&&!e.ctrlKey&&!(e.target.closest&&e.target.closest("input,select,textarea"))){const el=$("#dbg");el.hidden=!el.hidden;renderDbg()}});
 function engine(t){$("#engine").textContent=t}
-fetch("api/health").then(r=>r.ok?r.json():null).then(j=>{backend=j;if(j)engine(j.mode==="mock"?"Mock mode: no Gemini yet":j.mode==="unconfigured"?"Configure Gemini credentials in .env to read recordings":"Labels by Gemini · "+j.model)}).catch(()=>{backend=null});
+fetch("api/health").then(r=>r.ok?r.json():null).then(j=>{backend=j;if(j)engine(j.mode==="mock"?"Mock mode: no Gemini yet":j.mode==="unconfigured"?"Gemini isn't set up on the server: add credentials to .env and restart":"Labels by Gemini · "+j.model)}).catch(()=>{backend=null});
 function hud(text,tag,cls){$("#hudCount").textContent=text;if(tag){const t=$("#hudTag");t.className="tag "+(cls||"fun");t.textContent=tag}}
 function setSrc(label){$("#srcLabel").textContent=label+" · "+recName}
 function startAnalysis(f){
@@ -515,7 +518,7 @@ async function recap(){
     const d=await r.json().catch(()=>({}));
     if(run!==aiRun)return;
     if(!r.ok)throw new Error(d.error||"error "+r.status);
-    aiProfile=d.profile||null;
+    aiProfile=d.profile||null;aiSearch=d.search||null;
     quizData=(d.quiz||[]).map(q=>shuffleQ({...q,post:aiPosts[q.post_index]}));quizI=0;quizRound=0;
     engine(quizData.length?`Gemini read ${aiPosts.length} posts · your quiz is ready`:`Gemini read ${aiPosts.length} posts · not enough readable detail for a quiz`);
     if(quizData.length)sfx("ready");if(view==="quiz")renderQuiz();
@@ -590,16 +593,17 @@ function arrive(p){queue.push(p);history.push(p);absorbed++;if(p.k!=="info")rotC
 /* ---------- sound: synthesised live with Web Audio (no audio files) ---------- */
 let actx=null,muted=false;try{muted=localStorage.getItem("sponge-muted")==="1"}catch(e){}
 function ac(){if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;actx=new A()}if(actx.state==="suspended")actx.resume().catch(()=>{});return actx}
-addEventListener("pointerdown",()=>ac(),{once:true});addEventListener("keydown",()=>ac(),{once:true});
+["click","touchend","keydown"].forEach(ev=>addEventListener(ev,()=>ac(),{passive:true}));   // iOS unlocks audio on tap/click, not pointerdown
+const SFX_VOL=.45;   // master level for sound effects (music has its own)
 function tone(o){const c=ac();if(!c||muted)return;const t=c.currentTime+(o.at||0),osc=c.createOscillator(),g=c.createGain();
   osc.type=o.type||"sine";osc.frequency.setValueAtTime(o.f,t);if(o.f2)osc.frequency.exponentialRampToValueAtTime(o.f2,t+o.d);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(o.v||.2,t+(o.a||.01));g.gain.exponentialRampToValueAtTime(.0001,t+o.d);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime((o.v||.2)*SFX_VOL,t+(o.a||.01));g.gain.exponentialRampToValueAtTime(.0001,t+o.d);
   let n=osc;if(o.lp){const f=c.createBiquadFilter();f.type="lowpass";f.frequency.value=o.lp;osc.connect(f);n=f}
   n.connect(g);g.connect(c.destination);osc.start(t);osc.stop(t+o.d+.03)}
 function noise(o){const c=ac();if(!c||muted)return;const t=c.currentTime+(o.at||0),len=Math.max(1,Math.floor(c.sampleRate*o.d)),b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);
   for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const s=c.createBufferSource();s.buffer=b;const f=c.createBiquadFilter();f.type=o.ft||"bandpass";
   f.frequency.setValueAtTime(o.f,t);if(o.f2)f.frequency.exponentialRampToValueAtTime(o.f2,t+o.d);f.Q.value=o.q||1;
-  const g=c.createGain();g.gain.setValueAtTime(o.v||.2,t);g.gain.exponentialRampToValueAtTime(.0001,t+o.d);s.connect(f);f.connect(g);g.connect(c.destination);s.start(t);s.stop(t+o.d)}
+  const g=c.createGain();g.gain.setValueAtTime((o.v||.2)*SFX_VOL,t);g.gain.exponentialRampToValueAtTime(.0001,t+o.d);s.connect(f);f.connect(g);g.connect(c.destination);s.start(t);s.stop(t+o.d)}
 const lastSfx={};
 function sfx(name){const now=performance.now();if(now-(lastSfx[name]||0)<70)return;lastSfx[name]=now;
   switch(name){
@@ -925,7 +929,10 @@ function renderMap(){
 /* ---------- goldfish quiz: questions about what was actually on screen ----------
    With the backend: Gemini writes them from the details it read in each post (see /api/recap).
    Without it: hand-written questions for the sample posts you've seen. */
-let qTimer=null,quizData=null,quizI=0,quizRound=0;
+let qTimer=null,quizData=null,quizI=0,quizRound=0,aiSearch=null;
+// Google Search suggestions for grounded fun facts: shown as Google provides them, in a shadow root so page styles don't touch them
+function showSearch(el){if(!el||!aiSearch)return;el.innerHTML=`<p class="gs-note">Fun facts checked with Google Search</p><div></div>`;
+  try{el.lastChild.attachShadow({mode:"open"}).innerHTML=aiSearch}catch(e){el.hidden=true}}
 const SAMPLE_Q={
  "@moneyminute":{question:"The money video you scrolled past: what quietly eats idle cash in a checking account?",options:["Inflation","Overdraft fees","Compound interest","Exchange rates"],answer_index:0,explanation:"Idle cash loses value to inflation; a high-yield savings account closes most of that gap."},
  "@sleep.lab":{question:"According to the sleep clip, what matters most for sleep quality?",options:["A consistent wake-up time","A consistent bedtime","Exactly 8 hours","No screens after 9 pm"],answer_index:0,explanation:"A consistent wake-up time beats a consistent bedtime."},
@@ -949,11 +956,12 @@ function renderQuiz(){
     el.innerHTML=`<div class="qcard" style="text-align:center"><div class="note" style="color:#4a4f7a">YOUR RECALL</div><div class="big">${r}/${t}</div>
       <h2>${r/t>=.6?"You actually absorbed some of that 🧠":"Your feed went in one eye and out the other 🐟"}</h2>
       <p>${r/t>=.6?"Most people can't recall what they scrolled past ten minutes ago.":"That's normal. Feeds are built to be scrolled, not remembered."}</p>
-      <button class="btn y" id="qagain" type="button">Try again</button></div>`;
+      <button class="btn y" id="qagain" type="button">Try again</button>${quizData.some(x=>x.source_type==="interest")&&aiSearch?`<div class="gsearch" id="gsearch"></div>`:""}</div>`;
+    showSearch($("#gsearch"));
     $("#qagain").onclick=()=>{quizI=0;quizRound=0;quizData=quizData.map(shuffleQ);renderQuiz()};return}
   const q=quizData[quizI],src=q.post;
   el.innerHTML=`<div class="qcard"><div class="note" style="color:#4a4f7a">QUESTION ${quizI+1} OF ${quizData.length}</div>
-    ${src?`<div class="qsrc">${src.thumb?`<img src="${src.thumb}" alt="">`:""}<span>From: ${esc(src.t)}</span></div>`:""}
+    <div class="qsrc">${q.source_type==="interest"?`<span class="qtag int">🧠 Fun fact${q.topic?" · "+esc(q.topic):""}</span>`:`<span class="qtag rec">🐟 You scrolled past this</span>`}${src&&src.thumb?`<img src="${src.thumb}" alt="">`:""}${src?`<span>${q.source_type==="interest"?"Because you watched":"From"}: ${esc(src.t)}</span>`:""}</div>
     <h2>${esc(q.question)}</h2><div class="timer"><i id="qbar"></i></div>
     <div class="opts">${q.options.map((o,i)=>`<button class="opt" type="button" data-i="${i}">${esc(o)}</button>`).join("")}</div>
     <p class="qexp" id="qexp" hidden></p></div>
@@ -962,8 +970,9 @@ function renderQuiz(){
   const T=20;let left=T;const bar=$("#qbar");
   const finish=(i)=>{clearInterval(qTimer);const btns=[...el.querySelectorAll(".opt")];btns.forEach(b=>b.disabled=true);
     btns[q.answer_index].classList.add("right");quizScore.total++;
-    if(i===q.answer_index){quizScore.right++;quizRound++;$("#verdict").textContent="You remembered that 🧠";sfx("right")}
-    else{if(i!=null)btns[i].classList.add("wrong");$("#verdict").textContent=i==null?"Time's up. The goldfish wins 🐟":"The goldfish wins this one 🐟";sfx("wrong")}
+    const fun=q.source_type==="interest";q.got=i===q.answer_index;
+    if(q.got){quizScore.right++;quizRound++;$("#verdict").textContent=fun?"Fact absorbed 🧠 your sponge just got smarter":"You remembered that 🧠";sfx("right")}
+    else{if(i!=null)btns[i].classList.add("wrong");$("#verdict").textContent=fun?(i==null?"Time's up. Now you know 💡":"Now you know 💡 one new fact soaked in"):(i==null?"Time's up. The goldfish wins 🐟":"The goldfish wins this one 🐟");sfx("wrong")}
     if(q.explanation){const x=$("#qexp");x.textContent=q.explanation;x.hidden=false}
     const nx=$("#qnext");nx.hidden=false;nx.onclick=()=>{quizI++;renderQuiz()};nx.focus()};
   el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>finish(+b.dataset.i));

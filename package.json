@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "mock": "MOCK=true node server.js"
+    "mock": "MOCK=true node server.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": { "node": ">=20" },
   "dependencies": {

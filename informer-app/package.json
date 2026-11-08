@@ -1,0 +1,25 @@
+{
+  "name": "feed-sponge",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Soak up your doomscroll, wring out what was worth knowing.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && informer-deploy",
+    "workspace:init": "informer-workspace init",
+    "workspace:migrate": "informer-workspace migrate",
+    "workspace:reset": "informer-workspace reset"
+  },
+  "informer": {
+    "name": "Feed Sponge",
+    "description": "Screen-record your scroll, see what you actually learned, and watch your feed health improve.",
+    "id": "88f113dc-0e91-4627-a536-40910fb185f1"
+  },
+  "devDependencies": {
+    "@entrinsik/vite-plugin-informer": "^2.14.0",
+    "vite": "6.4.4"
+  }
+}
